@@ -1,17 +1,17 @@
--- Write a query that calculates a running-total quantity for each
--- customer (there is also 'and a month' in the original problem 
--- but I think that 'and a month' is a bit misleading):
+-- Explain why the following query isn’t a correct solution query for
+-- Exercise 07
 
 USE TSQLV4
 
-SELECT CO.custid,
-       CO.ordermonth,
-       CO.qty,
-       (
-           SELECT SUM(CO2.qty)
-           FROM Sales.CustOrders AS CO2
-           WHERE CO2.custid = CO.custid AND
-                 CO2.ordermonth <= CO.ordermonth
-       ) AS runqty
-FROM Sales.CustOrders AS CO
-ORDER BY CO.custid, CO.ordermonth
+SELECT C.custid, C.companyname, O.orderid, O.orderdate
+FROM Sales.Customers AS C
+  LEFT OUTER JOIN Sales.Orders AS O
+    ON O.custid = C.custid
+WHERE O.orderdate = '20160212'
+   OR O.orderid IS NULL;
+
+-- The following query will yield wrong results because the left outer
+-- join will return all customers and their orders + those customers who
+-- doesn't have orders. Which means that the 'O.orderid IS NULL' will
+-- filter only those customers who doesn't have orders. We want to filter
+-- those customers who hadn't placed orders on '20160212'

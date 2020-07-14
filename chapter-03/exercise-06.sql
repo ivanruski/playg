@@ -1,22 +1,12 @@
--- Write a query that returns customers who placed orders in 2015 but not
--- in 2016:
+-- Return customers with orders placed on Feb 12, 2016, along with their  -- orders
 
 USE TSQLV4
 
-SELECT C.custid,
-       C.companyname
-FROM Sales.Customers AS C
-WHERE NOT EXISTS (
-    SELECT *
-    FROM Sales.Orders AS O
-    WHERE O.orderdate >= '20160101' AND
-          O.orderdate <= '20161231' AND
-          O.custid = C.custid)
-    AND
-    EXISTS (
-       SELECT *
-       FROM Sales.Orders AS O
-       WHERE O.orderdate >= '20150101' AND
-             O.orderdate <= '20151231' AND
-             O.custid = C.custid)
-    
+SELECT c.custid,
+       c.companyname,
+       o.orderid,
+       o.orderdate
+FROM Sales.Customers AS c
+    INNER JOIN Sales.Orders AS o
+    ON c.custid = o.custid 
+    AND o.orderdate = '20160212';

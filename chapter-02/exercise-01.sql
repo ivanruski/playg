@@ -1,11 +1,21 @@
--- Write a query that generates five copies of each employee row
+-- Write a query against the Sales.Orders table that returns 
+-- orderers placed in June 2015
 
 USE TSQLV4
 
-SELECT e1.empid,
-       e1.firstname,
-       e1.lastname,
-       nums.n
-FROM HR.Employees AS e1
-CROSS JOIN (SELECT n FROM dbo.Nums WHERE n < 6) as nums
-ORDER BY n, empid
+-- The easiest way, however using MONTH and YEAR doesn't take advantage of indexing
+SELECT orderid,
+       orderdate,
+       custid,
+       empid
+FROM Sales.Orders
+WHERE MONTH(orderdate) = 6 and
+      YEAR(orderdate) = 2015
+
+SELECT orderid,
+       orderdate,
+       custid,
+       empid
+FROM Sales.Orders
+WHERE orderdate >= '2015-06-01' and
+      orderdate <= '2015-06-30'

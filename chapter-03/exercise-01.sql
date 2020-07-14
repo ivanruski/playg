@@ -1,13 +1,11 @@
--- Write a query that returns all orders placed on the last day of
--- activity that can be found in the Orders table:
+-- Write a query that generates five copies of each employee row
 
 USE TSQLV4
 
-SELECT O1.orderid,
-       O1.orderdate,
-       O1.custid,
-       O1.empid
-FROM Sales.Orders AS O1
-WHERE O1.orderdate = (
-    SELECT MAX(O2.orderdate)
-    FROM Sales.Orders AS O2)
+SELECT e1.empid,
+       e1.firstname,
+       e1.lastname,
+       nums.n
+FROM HR.Employees AS e1
+CROSS JOIN (SELECT n FROM dbo.Nums WHERE n < 6) as nums
+ORDER BY n, empid

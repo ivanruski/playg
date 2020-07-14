@@ -1,12 +1,12 @@
--- Return customers and their orders, including customers who placed no
--- orders.
+-- Write a query against the Sales.OrderDetails table that returns orders
+-- with total value (quantity * unitprice) greater than 10 000 and 
+-- sorted by total value
 
 USE TSQLV4
 
-SELECT c.custid,
-       c.companyname,
-       o.orderid,
-       o.orderdate
-FROM Sales.Customers AS c
-    LEFT OUTER JOIN Sales.Orders AS o
-    ON c.custid = o.custid
+SELECT orderid,
+       SUM((qty * unitprice)) as totalvalue
+FROM Sales.OrderDetails
+GROUP BY orderid
+HAVING SUM((qty * unitprice)) > 10000
+ORDER BY totalvalue

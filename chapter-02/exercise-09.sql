@@ -1,15 +1,18 @@
--- Return all customers, and for each return a Yes/No value depending on -- whether the customer placed orders on February 12, 2016:
+-- Using HR.Employees table, write SELECT statement that returns for each
+-- employee the gender based on the title of courtesy. For 'Ms.' and 
+-- 'Mrs' return 'Female'; for 'Mr' return 'Male' and in all other cases
+-- return 'Unknown'
 
 USE TSQLV4
 
--- Use DISTINCT because if there is a customer who placed 2 orders
--- on the filtered date, it will show up 2 times in the result set
-SELECT DISTINCT c.custid, c.companyname,
-       CASE o.orderdate
-           WHEN '20160212' THEN 'Yes'
-           ELSE 'No'
-       END AS HasOrderOn20160212
-FROM Sales.Customers AS c
-    LEFT OUTER JOIN Sales.Orders AS o
-    ON c.custid = o.custid
-    AND o.orderdate = '20160212'
+SELECT empid
+    ,firstname
+    ,lastname
+    ,titleofcourtesy
+    ,CASE titleofcourtesy
+        WHEN 'Ms.' THEN 'Female'
+        WHEN 'Mrs.' THEN 'Female'
+        WHEN 'Mr.' THEN 'Male'
+        ELSE 'Unknown'
+    END AS gender
+FROM HR.Employees

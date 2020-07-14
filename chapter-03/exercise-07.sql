@@ -1,15 +1,29 @@
--- Write a query that returns customers who ordered product 12:
+-- Write a query that returns all customers in the output, but matches
+-- them with their respective orders only if they were placed on
+-- February 12, 2016
 
 USE TSQLV4
 
-SELECT C.custid,
-       C.companyname
-FROM Sales.Customers AS C
-WHERE EXISTS (
-    SELECT O.orderid
-    FROM Sales.Orders AS O
-    WHERE O.custid = C.custid AND 
-          EXISTS (
-            SELECT *
-            FROM Sales.OrderDetails AS OD
-            WHERE OD.productid = 12 AND OD.orderid = O.orderid))
+SELECT c.custid,
+       c.companyname,
+       o.orderid,
+       o.orderdate
+FROM Sales.Customers AS c
+    LEFT OUTER JOIN (
+        SELECT orderid,
+               orderdate,
+               custid
+        FROM Sales.Orders
+        WHERE orderdate = '20160212') AS o
+    ON c.custid = o.custid
+
+-- or 
+
+SELECT c.custid,
+       c.companyname,
+       o.orderid,
+       o.orderdate
+FROM Sales.Customers AS c
+    LEFT OUTER JOIN Sales.Orders AS o
+    ON c.custid = o.custid
+    AND o.orderdate = '20160212'

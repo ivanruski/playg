@@ -1,16 +1,15 @@
--- Explain the difference betweeen IN and EXISTS
+-- Return all customers, and for each return a Yes/No value depending on -- whether the customer placed orders on February 12, 2016:
 
--- IN has the form: scalar IN (SELECT x FROM dbo.XS).
--- IN checks if the scalar is present in the result table.
--- IN can't be used with a table that has more than one column.
--- IN can return TRUE, FALSE or UNKNOWN(if the table countains NULL).
+USE TSQLV4
 
--- EXISTS has the from: EXISTS (SELECT * FROM dbo.XS)
--- EXISTS returns false if the table has 0 rows and true otherwise
-
--- Both can be used with NOT. (NOT IN, NOT EXISTS)
--- EXISTS is more safe to be used with NOT because EXISTS returns only
--- true or false where as if we use NOT IN with a table that has NULL
--- the result will be UNKNOWN
-
-
+-- Use DISTINCT because if there is a customer who placed 2 orders
+-- on the filtered date, it will show up 2 times in the result set
+SELECT DISTINCT c.custid, c.companyname,
+       CASE o.orderdate
+           WHEN '20160212' THEN 'Yes'
+           ELSE 'No'
+       END AS HasOrderOn20160212
+FROM Sales.Customers AS c
+    LEFT OUTER JOIN Sales.Orders AS o
+    ON c.custid = o.custid
+    AND o.orderdate = '20160212'

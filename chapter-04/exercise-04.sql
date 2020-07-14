@@ -1,31 +1,20 @@
-/*
-  Write a solution using a recursive CTE that returns the management chain leading to Patricia Doyle (employee ID 9):
-*/
+-- Write a query that returns countries where there are customers but not
+-- employees:
 
-USE TSQLV4;
+USE TSQLV4
 
-WITH Employees_chain_DESC
-AS
-(
-    SELECT empid,
-           mgrid,
-           firstname,
-           lastname
-    FROM Hr.Employees
-    WHERE empid = 9
-
-    UNION ALL
-
-    SELECT E.empid,
-           E.mgrid,
-           E.firstname,
-           E.lastname
+SELECT DISTINCT C.country
+FROM Sales.Customers AS C
+WHERE NOT EXISTS (
+    SELECT DISTINCT E.country
     FROM Hr.Employees AS E
-        INNER JOIN Employees_chain_DESC AS P
-        ON E.empid = P.mgrid
+    WHERE E.country = C.country
 )
-SELECT empid,
-    mgrid,
-    firstname,
-    lastname
-FROM Employees_chain_DESC;
+
+-- The solution from the book is pretty good because the subquery can be
+-- executed only once instead of for every row
+
+SELECT DISTINCT country
+FROM Sales.Customers
+WHERE country NOT IN
+  (SELECT E.country FROM HR.Employees AS E);
