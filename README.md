@@ -1,3 +1,1 @@
-## Solutions to an exercises from different books that I have read.
-
----
+Solutions to various exercises from different books that I have read.
