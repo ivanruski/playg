@@ -40,7 +40,7 @@ func play(n int) {
 		nums[i] = i + 1
 	}
 
-	r := buildpermutationslist(nil, nums, nil)
+	r := buildpermutationslist(nil, nums, make([][]int, 0, factorial(n)))
 
 	for _, p := range r {
 		fmt.Println(p)
@@ -53,7 +53,9 @@ func permute(nums []int) [][]int {
 
 func buildpermutationslist(permutation, nums []int, result [][]int) [][]int {
 	if len(permutation) == len(nums) {
-		return append(result, permutation)
+		s := make([]int, len(nums), len(nums))
+		copy(s, permutation)
+		return append(result, s)
 	}
 
 	for _, num := range nums {
