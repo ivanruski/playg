@@ -8,55 +8,33 @@ func TestCoinChange(t *testing.T) {
 		amount int
 		result int
 	}{
-		"impossibleCase1": {
-			coins:  []int{3},
-			amount: 4,
+		"coins=[]_amount=1": {
+			amount: 1,
 			result: -1,
 		},
-		"coin==amoint": {
-			coins:  []int{50},
-			amount: 50,
-			result: 1,
+		"coins=[]_amount=0": {
+			amount: 0,
+			result: 0,
 		},
-		"coin(1)_amount(1000)": {
-			coins:  []int{1},
-			amount: 1000,
-			result: 1000,
-		},
-		"coin(1,2,5)_amount(11)": {
+		"coins=[1,2,5]_amount=20": {
 			coins:  []int{1, 2, 5},
-			amount: 11,
-			result: 3,
-		},
-		"trickyCase1": {
-			coins:  []int{83, 186, 408, 419},
-			amount: 6249,
-			result: 20,
-		},
-		"trickyCase2": {
-			coins:  []int{1, 20, 50},
-			amount: 60,
-			result: 3,
-		},
-		"trickyCase3": {
-			coins:  []int{2, 5},
-			amount: 11,
+			amount: 20,
 			result: 4,
 		},
-		"trickyCase4": {
-			coins:  []int{484, 395, 346, 103, 329},
-			amount: 4259,
-			result: 11,
+		"coins=[7,8]_amount=20": {
+			coins:  []int{7, 8},
+			amount: 20,
+			result: -1,
 		},
-		"trickyCase5": {
-			coins:  []int{3, 7, 405, 436},
-			amount: 8839,
-			result: 25,
+		"coins=[10]_amount=9": {
+			coins:  []int{10},
+			amount: 9,
+			result: -1,
 		},
-		"slowTest1": {
-			coins:  []int{411, 412, 413, 414, 415, 416, 417, 418, 419, 420, 421, 422},
-			amount: 9864,
-			result: 24,
+		"coins=[1,7,9]_amount=21": {
+			coins:  []int{1, 7, 9},
+			amount: 21,
+			result: 3,
 		},
 	}
 

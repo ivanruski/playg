@@ -45,59 +45,40 @@ import (
 )
 
 func main() {
-	coins := []int{484, 395, 346, 329, 103} // []int{3, 7, 405, 436}
-	amount := 4259                          // 8839
+	var (
+		coins  = []int{186, 419, 83, 408} // []int{484, 395, 346, 329, 103} // []int{3, 7, 405, 436}
+		amount = 6249                     // 4259                          // 8839
+	)
 	fmt.Println(coinChange(coins, amount))
 }
 
 func coinChange(coins []int, amount int) int {
-	if amount == 0 {
-		return 0
-	}
 	sort.Ints(coins)
-	memo := make([][]int, amount+1, amount+1)
-	for i := 0; i < len(memo); i++ {
-		memo[i] = make([]int, len(coins)+1, len(coins)+1)
-	}
-	coinChange2(coins, amount, memo)
-	min := math.MaxInt64
-	for _, n := range memo[amount] {
-		if n < min && n != 0 {
-			min = n
+	allAmounts := make([]int, amount+1)
+
+	// The fewest amout of coins for the zero coin is zero
+	allAmounts[0] = 0
+	for a := 1; a < len(allAmounts); a++ {
+
+		// Find the coin that when substracted will result in an amount
+		// the is represented by the least number of coins
+		var c, least int = 0, math.MaxInt
+		for i := len(coins) - 1; i >= 0; i-- {
+			if a-coins[i] < 0 || allAmounts[a-coins[i]] == -1 {
+				continue
+			}
+
+			if allAmounts[a-coins[i]] < least {
+				c = coins[i]
+				least = allAmounts[a-coins[i]]
+			}
+		}
+		if c == 0 {
+			allAmounts[a] = -1
+		} else {
+			allAmounts[a] = allAmounts[a-c] + 1
 		}
 	}
 
-	if min == math.MaxInt64 {
-		return -1
-	}
-	return min
-}
-
-func coinChange2(coins []int, amount int, memo [][]int) int {
-	if len(coins) == 0 || amount < 0 {
-		return math.MaxInt64
-	}
-	if amount == 0 {
-		return 0
-	}
-	if memo[amount][len(coins)] != 0 {
-		return memo[amount][len(coins)]
-	}
-
-	ln := len(coins)
-	largest := coins[ln-1]
-	r := coinChange2(coins, amount-largest, memo)
-	l := coinChange2(coins[:ln-1], amount, memo)
-
-	if l < r || (l != math.MaxInt64 && l == r) {
-		memo[amount][ln] = l
-		return l
-	}
-	if r < l {
-		memo[amount][ln] = r + 1
-		return r + 1
-	}
-
-	memo[amount][ln] = math.MaxInt64
-	return math.MaxInt64
+	return allAmounts[amount]
 }
