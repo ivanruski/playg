@@ -21,6 +21,8 @@
 //
 // Example 2:
 // n = 2 - false
+//
+// link: https://leetcode.com/problems/happy-number/
 
 package main
 
