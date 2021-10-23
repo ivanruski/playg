@@ -13,6 +13,11 @@
 // Output: [[],[0]]
 //
 // link: https://leetcode.com/problems/subsets/
+//
+// Constraints:
+// 1 <= nums.length <= 10
+// -10 <= nums[i] <= 10
+// All the numbers of nums are unique.
 
 package main
 
