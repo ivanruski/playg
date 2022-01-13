@@ -1,8 +1,12 @@
 #emacs files
 \#.*\#
 .*\~
+**/.DS_Store
 
+# T-SQL Fundamentals
 dropdb.sql
 playground.sql
 
-**/.DS_Store
+# sicp
+sicp/.projectile
+
