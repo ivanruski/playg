@@ -29,3 +29,13 @@
 ;; x -> x + 1 applied 5 times should be x -> x + 5
 ((repeated (lambda (x) (+ x 1)) 5) 5)
 
+;; Using compose - I had to look that out on the web ;/
+;; I had a hard time grasping it, but by using the substition model
+;; I figure it out.
+(define (compose f g)
+  (lambda (x) (f (g x))))
+
+(define (repeated f n)
+  (if (= n 1)
+      f
+      (compose f (repeated f (- n 1)))))
