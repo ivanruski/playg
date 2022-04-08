@@ -79,3 +79,60 @@ func SumToDigits(x, y int) (int, int) {
 
 	return sum, 0
 }
+
+// The FOLLOW UP, without reversing the lists
+func SumToDigitsNormalOrder(a, b *Node) *Node {
+	al, bl := listLengths(a, b)
+	if al > bl {
+		b = addZeroesToFront(b, al-bl)
+	} else if bl > al {
+		a = addZeroesToFront(a, bl-al)
+	}
+
+	node, carry := sumListsWithSameLengths(a, b)
+	if carry == 1 {
+		return &Node{Value: 1, Next: node}
+	}
+
+	return node
+}
+
+func sumListsWithSameLengths(a, b *Node) (*Node, int) {
+	if a == nil {
+		return nil, 0
+	}
+
+	head, carry := sumListsWithSameLengths(a.Next, b.Next)
+	a.Value += carry
+
+	sum, carry := SumToDigits(a.Value, b.Value)
+	node := &Node{Value: sum, Next: head}
+
+	return node, carry
+}
+
+func addZeroesToFront(head *Node, n int) *Node {
+	newHead := head
+	for i := 0; i < n; i++ {
+		n := &Node{Value: 0}
+		n.Next = newHead
+
+		newHead = n
+	}
+
+	return newHead
+}
+
+func listLengths(a, b *Node) (int, int) {
+	var alen int
+	for ; a != nil; a = a.Next {
+		alen++
+	}
+
+	var blen int
+	for ; b != nil; b = b.Next {
+		blen++
+	}
+
+	return alen, blen
+}
