@@ -13,14 +13,23 @@
   (* (rectangle-length rect)
      (rectangle-width rect)))
 
-(define (make-rectangle upper-left-point length width)
-  (cons upper-left-point (cons length width)))
+(define (make-rectangle upper-left-point
+                        upper-right-point
+                        lower-right-point
+                        lower-left-point)
+  (cons upper-left-point
+        (cons upper-right-point
+              (cons lower-right-point
+                    lower-left-point))))
 
 (define (rectangle-length rect)
-  (car (cdr rect)))
+  (point-dist (car rect) (car (cdr rect))))
 
 (define (rectangle-width rect)
-  (cdr (cdr rect)))
+  ;; take upper and lower point on the same side
+  ;; upper-right and lower-right
+  (point-dist (car (cdr rect))
+              (car (cdr (cdr rect)))))
 
 ;; Code from from exercise 2.2
 
@@ -63,6 +72,12 @@
                        (x-point point-b))
               (average (y-point point-a)
                        (y-point point-b))))
+
+(define (point-dist point-a point-b)
+  (sqrt (+ (square (- (x-point point-b)
+                      (x-point point-a)))
+           (square (- (y-point point-b)
+                      (y-point point-a))))))
 
 ;;
 
