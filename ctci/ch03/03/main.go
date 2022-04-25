@@ -6,6 +6,10 @@
 // capacity. SetOfStacks.push() and SetOfStacks.pop() should behave identically
 // to a single stack (that is, pop() should return the same values as it would
 // if there wer just a single stack).
+//
+// FOLLOW UP
+// ImplemenT a function popAt(int index) which performs a pop operation on a
+// specific sub-stack.
 
 package main
 
@@ -22,7 +26,7 @@ type Stack struct {
 }
 
 func (s *Stack) Pop() (int, bool) {
-	if s.top == nil {
+	if s == nil || s.top == nil {
 		return 0, false
 	}
 
@@ -44,6 +48,10 @@ func (s *Stack) Push(v int) {
 }
 
 func (s *Stack) Size() int {
+	if s == nil {
+		return 0
+	}
+
 	return s.size
 }
 
@@ -62,11 +70,21 @@ func NewSetOfStacks(threshold int) *SetOfStacks {
 	}
 }
 
-func (ss *SetOfStacks) Pop() (int, bool) {
-	// Cases:
-	// - The current stack has elements /v
-	// - The current stack has no elements
+func (ss *SetOfStacks) PopAt(index int) (int, bool) {
+	if index >= len(ss.stacks) {
+		return 0, false
+	}
 
+	s := ss.stacks[index]
+	v, ok := s.Pop()
+	if !ok {
+		return 0, false
+	}
+
+	return v, true
+}
+
+func (ss *SetOfStacks) Pop() (int, bool) {
 	s := ss.stacks[ss.currStack]
 	v, ok := s.Pop()
 
@@ -80,12 +98,7 @@ func (ss *SetOfStacks) Pop() (int, bool) {
 		return 0, false
 	}
 
-	// The current stack is empty and there are other stacks, go to the previous
-	if ss.currStack == 0 {
-		ss.currStack = len(ss.stacks) - 1
-	} else {
-		ss.currStack -= 1
-	}
+	ss.currStack -= 1
 
 	return ss.Pop()
 }
@@ -143,6 +156,11 @@ func (ss *SetOfStacks) resize() {
 }
 
 func (ss *SetOfStacks) stacksUsed() int {
+	s := ss.stacks[ss.currStack]
+	if (s == nil && ss.currStack == 0) || (s.Size() == 0 && ss.currStack == 0) {
+		return 0
+	}
+
 	return ss.currStack + 1
 }
 

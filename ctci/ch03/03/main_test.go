@@ -109,3 +109,61 @@ func TestSetOfStacks(t *testing.T) {
 		})
 	}
 }
+
+func TestPopAt(t *testing.T) {
+	ss := NewSetOfStacks(2)
+	ss.Push(5)
+	ss.Push(4)
+
+	ss.Push(3)
+	ss.Push(6)
+
+	ss.Push(10)
+	ss.Push(20)
+
+	ss.Push(50)
+	ss.Push(60)
+
+	_, ok := ss.PopAt(4)
+	if ok {
+		t.Fatalf("expected !ok, got ok")
+	}
+
+	tests := []struct {
+		stackIdx int
+		val      int
+	}{
+		{2, 20},
+		{1, 6},
+		{0, 4},
+		{2, 10},
+	}
+
+	for _, ts := range tests {
+		val, ok := ss.PopAt(ts.stackIdx)
+
+		if !ok || val != ts.val {
+			t.Fatalf("exptected ok with val = %d, got %v with val = %d", ts.val, ok, val)
+		}
+	}
+
+	wants := []int{60, 50, 3, 5}
+	for _, want := range wants {
+		val, ok := ss.Pop()
+		if !ok || val != want {
+			t.Fatalf("exptected ok with val = %d, got %v with val = %d", want, ok, val)
+		}
+	}
+
+	val, ok := ss.Pop()
+	if ok {
+		t.Fatalf("exptected !ok, got %d", val)
+	}
+
+	for i := 0; i < 10; i++ {
+		val, ok = ss.PopAt(i)
+		if ok {
+			t.Fatalf("exptected !ok, got %d", val)
+		}
+	}
+}
