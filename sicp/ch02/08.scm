@@ -9,13 +9,7 @@
   (make-interval (- (lower-bound a) (upper-bound b))
                  (- (upper-bound a) (lower-bound b))))
 
-;; I think that the reason why we substract intervals this way is so that
-;; the result is a valid interval, 
-;;
-;; (define i1 (make-interval a b)), where a <= b
-;; (define i2 (make-interval c d)), where c <= d
-;;
-;; a - d <= a - c
-;; b - d <= b - c
-;;
-;; since a <= b and a - d <= a - c and a - c < b -c,then b - c > a - d
+;; The reason we substract the intervals that way is because
+;; (lower-bound a) - (upper-bound b) is the smallest number and
+;; (upper-bound a) - (lower-bound b) is the largest number. This is true when a
+;; is before b, when a is after b and when the intervals are overlapping.
