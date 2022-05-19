@@ -14,6 +14,8 @@ type TreeNode struct {
 func main() {
 }
 
+// Create a slice by traversing the tree inorder and check
+// if the values in the slice are in an increasing order.
 func isValidBST(root *TreeNode) bool {
 	s := sliceFromInOrderTraversal(root)
 	if len(s) < 2 {
@@ -45,4 +47,26 @@ func sliceFromInOrderTraversal(root *TreeNode) []int {
 	}
 
 	return s
+}
+
+// The second approach is from the hints. The idea is to check that
+// each node is within an allowed range
+func isValidBST_2(root *TreeNode) bool {
+	min := -(1 << 32)
+	max := 1 << 32
+
+	return inOrderWithRange(root, min, max)
+}
+
+func inOrderWithRange(root *TreeNode, min, max int) bool {
+	if root == nil {
+		return true
+	}
+
+	if min < root.Val && root.Val < max {
+		return inOrderWithRange(root.Left, min, root.Val) &&
+			inOrderWithRange(root.Right, root.Val, max)
+	}
+
+	return false
 }
