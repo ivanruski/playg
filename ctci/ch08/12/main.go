@@ -7,27 +7,44 @@
 
 package main
 
-import "fmt"
+import (
+	"flag"
+	"fmt"
+)
 
 func main() {
-	result := solveNQueens(4)
+	n := flag.Int("n", 0, "")
+	flag.Parse()
+
+	result := solveNQueens(*n)
 	for _, str := range result {
-		fmt.Printf("%v\n\n", str)
+		fmt.Printf("%v\n", str)
 	}
 }
 
 func solveNQueens(n int) [][]string {
-	cols := make([]int, n)
-	for i := 0; i < len(cols); i++ {
-		cols[i] = i
+	board := make([]int, 0, n)
+	result := make([][]string, 0, 16)
+
+	for i := 0; i < n; i++ {
+		nqueens(i, n, append(board, i), &result)
 	}
 
-	colsp := permute(cols)
-	result := make([][]string, 0, 64)
-	for _, cols := range colsp {
-		result = append(result, newBoard(cols))
-	}
 	return result
+}
+
+func nqueens(col, n int, board []int, result *[][]string) {
+	if len(board) == n {
+		*result = append(*result, newBoard(board))
+		return
+	}
+
+	for i := 0; i < n; i++ {
+		newB := append(board, i)
+		if isBoardValid(newB) {
+			nqueens(i, n, append(board, i), result)
+		}
+	}
 }
 
 func newBoard(cols []int) []string {
@@ -54,6 +71,10 @@ func newBoard(cols []int) []string {
 func isBoardValid(board []int) bool {
 	for row, col := range board {
 		for i := row + 1; i < len(board); i++ {
+			if col == board[i] {
+				return false
+			}
+			// diagonals check
 			if i-row == board[i]-col ||
 				i-row == col-board[i] {
 				return false
@@ -62,51 +83,4 @@ func isBoardValid(board []int) bool {
 	}
 
 	return true
-}
-
-func permute(nums []int) [][]int {
-	result := make([][]int, 0, fact(len(nums)))
-	var f func([]int)
-
-	f = func(prefix []int) {
-		if !isBoardValid(prefix) {
-			return
-		}
-
-		if len(prefix) == len(nums) {
-			r := make([]int, len(prefix))
-			copy(r, prefix)
-			result = append(result, r)
-			return
-		}
-
-		for _, n := range nums {
-			if !isInSlice(n, prefix) {
-				f(append(prefix, n))
-			}
-		}
-	}
-
-	prefix := make([]int, 0, len(nums))
-	f(prefix)
-
-	return result
-}
-
-func fact(n int) int {
-	result := 1
-	for i := 2; i <= n; i++ {
-		result *= i
-	}
-
-	return result
-}
-
-func isInSlice(n int, nums []int) bool {
-	for i := 0; i < len(nums); i++ {
-		if nums[i] == n {
-			return true
-		}
-	}
-	return false
 }
