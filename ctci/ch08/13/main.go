@@ -13,7 +13,10 @@
 
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 func main() {
 	cuboids := [][]int{
@@ -28,50 +31,59 @@ func main() {
 
 	fmt.Println(maxHeight(cuboids))
 
-	// fmt.Println(rotateCube([]int{15, 100, 101}))
+	printcubes(cuboids)
 }
-
-var rotationsMap map[int][][]int
 
 func maxHeight(cuboids [][]int) int {
-	var (
-		result = new(int)
-		used   = make([]int, 0, len(cuboids))
-		subset = make([][]int, 0, len(cuboids))
-	)
-
-	rotationsMap = make(map[int][][]int, len(cuboids))
-	for i := 0; i < len(cuboids); i++ {
-		rotationsMap[i] = rotateCube(cuboids[i])
+	for _, cube := range cuboids {
+		sort.Ints(cube)
 	}
 
-	findMaxHeight(cuboids, subset, used, result)
-	return *result
+	sort.Slice(cuboids, func(i, j int) bool {
+		// reverse
+		if cuboids[i][2] != cuboids[j][2] {
+			return cuboids[i][2] > cuboids[j][2]
+		}
+		if cuboids[i][1] != cuboids[j][1] {
+			return cuboids[i][1] > cuboids[j][1]
+		}
+		return cuboids[i][0] > cuboids[j][0]
+	})
+
+	var max int
+	for i := 0; i < len(cuboids); i++ {
+		h := findMaxHeight(cuboids, i)
+		if h > max {
+			max = h
+		}
+	}
+
+	return max
 }
 
-func findMaxHeight(cuboids, subset [][]int, used []int, max *int) {
-	printcubes(subset)
-	if h := cuboidsHeight(subset); h > *max {
-		*max = h
-	}
-
-	if len(used) == len(cuboids) {
-		return
-	}
-
-	for i := 0; i < len(cuboids); i++ {
-		if isInSlice(i, used) {
-			continue
-		}
-		used := append(used, i)
-		rotations := rotationsMap[i]
-		for _, rotation := range rotations {
-			if len(subset) == 0 || compareCubes(subset[len(subset)-1], rotation) == -1 {
-				findMaxHeight(cuboids, append(subset, rotation), used, max)
+func findMaxHeight(cuboids [][]int, bottom int) int {
+	var max int
+	for i := bottom + 1; i < len(cuboids); i++ {
+		if compareCubes(cuboids[bottom], cuboids[i]) == -1 {
+			if h := findMaxHeight(cuboids, i); h > max {
+				max = h
 			}
 		}
-		used = used[:len(used)-1]
 	}
+	max += cuboids[bottom][2]
+	return max
+}
+
+func compareCubes(a, b []int) int {
+	if a[0] >= b[0] && a[1] >= b[1] && a[2] >= b[2] {
+		return -1
+	}
+
+	if a[0] < b[0] && a[1] < b[1] && a[2] < b[2] {
+		return 1
+	}
+
+	return 0
 }
 
 func printcubes(cuboids [][]int) {
@@ -88,75 +100,4 @@ func cuboidsHeight(cuboids [][]int) int {
 		h += c[2]
 	}
 	return h
-}
-
-func rotateCube(c []int) [][]int {
-	mapHasOneKey := func(m map[int]int) bool {
-		cnt := 0
-		for _, v := range m {
-			if v > 0 {
-				cnt++
-			}
-		}
-		return cnt == 1
-	}
-
-	// permute with dups as some of the dimensions could be equal
-	var permute func(map[int]int) [][]int
-	permute = func(m map[int]int) [][]int {
-		if mapHasOneKey(m) {
-			for k, v := range m {
-				if v == 0 {
-					continue
-				}
-				r := make([]int, v)
-				for i := 0; i < v; i++ {
-					r[i] = k
-				}
-				return [][]int{r}
-			}
-		}
-
-		result := make([][]int, 0, 4)
-		for k, v := range m {
-			if v == 0 {
-				continue
-			}
-
-			m[k]--
-			subr := permute(m)
-			for _, sr := range subr {
-				result = append(result, append(sr, k))
-			}
-			m[k]++
-		}
-		return result
-	}
-
-	m := map[int]int{}
-	for _, num := range c {
-		m[num]++
-	}
-	return permute(m)
-}
-
-func compareCubes(a, b []int) int {
-	if a[0] >= b[0] && a[1] >= b[1] && a[2] >= b[2] {
-		return -1
-	}
-
-	if a[0] < b[0] && a[1] < b[1] && a[2] < b[2] {
-		return 1
-	}
-
-	return 0
-}
-
-func isInSlice(x int, nums []int) bool {
-	for _, n := range nums {
-		if x == n {
-			return true
-		}
-	}
-	return false
 }
