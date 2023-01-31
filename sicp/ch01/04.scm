@@ -8,6 +8,7 @@
 (a-plus-abs-b 5 5)
 
 ;; 5 and 5 are replaced with a and b in the body of a-plus-abs-b then
-;; (if (> 5 0) + -) 5 5) is evaluated.
-;; The operands (5 and 5) and the oprator (if..)  are evaluated then and
-;; the result of the latter is applied to 5 and 5
+;; ((if (> 5 0) + -) 5 5) is evaluated.
+;; The subexpressions of the combination are evaluated. The operands are primitive
+;; expressions and the operator is combination itself. After it is evaluated,
+;; 5 and 5 are applied to the result
