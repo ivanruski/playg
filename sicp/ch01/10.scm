@@ -62,13 +62,14 @@
 ;; (A 2 4)
 ;; 65536
 
-;; (f n) computes 2n
+;; (f n) -> f(x) = 2x
 ;;
-;; (g n) computes 2^n
+;; (g n) -> g(x) = 2^x
 ;;
-;; (h n) computes:
-;; (define (h2 n)
-;;  (cond ((= n 0) 0)
-;;        ((= n 1) 2)
-;;        (else (expt 2 (h2 (- n 1))))))
+;; (h n) ->
+;;          n = 0 | h(n) = 0
+;;          n = 1 | h(n) = 2
+;;          n > 1 | h(n) = 2^h(n-1)
 ;;
+;; (k n) -> k(n) = 5*n^2
+
