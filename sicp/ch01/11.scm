@@ -15,13 +15,13 @@
 
 ;; iterative solution
 (define (fi n)
-  (define (iter a b c count)
-    (if (= count 0)
-        (+ c (* 2 b) (* 3 a))
-        (iter b
-              c
-              (+ c (* 2 b) (* 3 a))
-              (- count 1))))
+  (define (iter fa fb fc x)
+    (if (= x n)
+        (+ fa (* 2 fb) (* 3 fc))
+        (iter (+ fa (* 2 fb) (* 3 fc))
+                fa
+                fb
+                (+ x 1))))
   (if (< n 3)
       n
-      (iter 0 1 2 (- n 3))))
+      (iter 2 1 0 3)))
