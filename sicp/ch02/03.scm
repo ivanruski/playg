@@ -6,13 +6,14 @@
 ;; perimeter and area procedures will work using either representation?
 
 (define (rectangle-perimeter rect)
-  (+ (* 2 (rectangle-length rect))
+  (+ (* 2 (rectangle-height rect))
      (* 2 (rectangle-width rect))))
 
 (define (rectangle-area rect)
-  (* (rectangle-length rect)
+  (* (rectangle-height rect)
      (rectangle-width rect)))
 
+;; either
 (define (make-rectangle upper-left-point
                         upper-right-point
                         lower-right-point
@@ -22,7 +23,7 @@
               (cons lower-right-point
                     lower-left-point))))
 
-(define (rectangle-length rect)
+(define (rectangle-height rect)
   (point-dist (car rect) (car (cdr rect))))
 
 (define (rectangle-width rect)
@@ -30,6 +31,16 @@
   ;; upper-right and lower-right
   (point-dist (car (cdr rect))
               (car (cdr (cdr rect)))))
+
+;; or
+(define (make-rectangle width height)
+  (cons width height))
+
+(define (rectangle-height rect)
+  (segment-length (cdr rect)))
+
+(define (rectangle-width rect)
+  (segment-length (car rect)))
 
 ;; Code from from exercise 2.2
 
@@ -55,6 +66,10 @@
 (define (midpoint-segment segment)
   (point-avg (start-segment segment)
              (end-segment segment)))
+
+(define (segment-length segment)
+  (point-dist (start-segment segment)
+              (end-segment segment)))
 
 ;; points
 
