@@ -5,8 +5,8 @@
 
 (define (div-interval x y)
   (define (spans-zero? interval)
-    (and (<= (lower-bound interval) 0)
-         (<= 0 (upper-bound interval))))
+    (or (<= (lower-bound interval) 0)
+         (>= 0 (upper-bound interval))))
   (if (spans-zero? y)
       (error "can't divide by an interval spanning zero" y)
       (mul-interval x
