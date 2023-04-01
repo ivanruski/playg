@@ -1,21 +1,30 @@
-// Given an unsorted integer array nums, return the smallest missing positive
-// integer.
+// Given an unsorted integer array nums, return the smallest missing positive integer.
+// 
+// You must implement an algorithm that runs in O(n) time and uses constant extra space.
 //
 // Example 1:
-// Input: [1, 3, 6, 4, 1, 2]
-// Output: 5
+//
+// Input: nums = [1,2,0]
+// Output: 3
+// Explanation: The numbers in the range [1,2] are all in the array.
 //
 // Example 2:
-// Input: [1, 2, 3]
-// Output: 4
+// 
+// Input: nums = [3,4,-1,1]
+// Output: 2
+// Explanation: 1 is in the array but 2 is missing.
 //
 // Example 3:
-// Input: [-1, -2]
-// Input: 1
+// 
+// Input: nums = [7,8,9,11,12]
+// Output: 1
+// Explanation: The smallest positive integer 1 is missing.
 //
-// links:
-//  - https://leetcode.com/problems/first-missing-positive/ (this one want solution with O(n))
-//  - https://app.codility.com/c/run/demoNW9V87-J29/ (codility programming demo test)
+// Constraints:
+// 1 <= nums.length <= 105
+// -2^31 <= nums[i] <= 2^31 - 1
+// 
+// https://leetcode.com/problems/first-missing-positive/
 
 package main
 
@@ -24,47 +33,32 @@ import "sort"
 func main() {
 }
 
-// The solution is with time complexity O(n*logn) because I am sorting the array.
-// Assuming that the sort algorithm is O(n*logn) and contains and insert into a
-// a map is O(1)
-func firstMissingPositive(A []int) int {
-	nums := getPositiveOnly(A)
-
-	// everything in A was a negative nums
-	if len(nums) == 0 {
-		return 1
+func firstMissingPositive(nums []int) int {
+	for i := 0; i < len(nums); i++ {
+		placeAtI(nums[i], nums)
 	}
 
-	sort.Ints(nums)
-	// The smallest num is larger than one
-	if nums[0] > 1 {
-		return 1
-	}
-
-	nm := make(map[int]struct{}, len(nums))
-	for _, n := range nums {
-		_, ok := nm[n]
-		if !ok {
-			nm[n] = struct{}{}
+	for i := 0; i < len(nums); i++ {
+		if nums[i] != i+1 {
+			return i + 1
 		}
 	}
 
-	for _, n := range nums {
-		_, ok := nm[n+1]
-		if !ok {
-			return n + 1
-		}
-	}
-
-	return nums[len(nums)-1] + 1
+	return len(nums) + 1
 }
 
-func getPositiveOnly(A []int) []int {
-	ns := make([]int, 0, len(A))
-	for _, a := range A {
-		if a > 0 {
-			ns = append(ns, a)
-		}
+func placeAtI(ni int, nums []int) {
+	if ni < 1 {
+		return
 	}
-	return ns
+
+	if ni > 0 && ni <= len(nums) {
+		if nums[ni-1] == ni {
+			return
+		}
+
+		nj := nums[ni-1]
+		nums[ni-1] = ni
+		placeAtI(nj, nums)
+	}
 }
