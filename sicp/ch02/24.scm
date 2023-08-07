@@ -7,22 +7,35 @@
 ;; The result printed by the interpreter should be:
 ;; (1 (2 (3 4)))
 
-;; The box-and-pointer structure should be(my way is not exactly
-;; box-and-pointer):
-;; [1, [2, [3, 4]]]
-;; This is a list of two elements, the first element is 1, the second
-;; element is another list.
+;; The box-and-pointer structure should be:
+;;
+;; |---+---|       |---+---|       
+;; | 1 |   | ----> |    | x |
+;; |---+---|       |---+---|
+;;                   |
+;;                   |
+;;                 |---+---|       |---+---|
+;;                 | 2 |   | ----> |    | x |
+;;                 |---+---|       |---+---|
+;;                                   |
+;;                                   |
+;;                                 |---+---|      |---+---| 
+;;                                 |  3 |   | ---> | 4 | x |
+;;                                 |---+---|      |---+---|
+;;
+;; This is a list of two elements, the first element is 1, the second element is
+;; another list.
 
 (define t (list 1 (list 2 (list 3 4))))
 
 (length t)
 
 ;; The tree should look like this, with 4 nodes.
-;; 
+;; (1 (2 (3 4)))
 ;;     /\
-;;    1  \
+;;    1  \(2 (3 4))
 ;;       /\ 
-;;      2  \
+;;      2  \ (3 4)
 ;;         /\
 ;;        3  4
 
