@@ -6,7 +6,7 @@
 
 
 (define (reverse l)
-  (if (or (null? l) (= (length l) 1))
+  (if (null? l)
       l
       (append (reverse (cdr l))
               (list (car l)))))
