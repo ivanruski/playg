@@ -18,3 +18,12 @@
       (append (fringe (car tree))
               (fringe (cdr tree)))))
 
+;; or
+
+(define (fringe tree)
+  (cond ((null? tree) ())
+        ((list? (car tree)) (append (fringe (car tree))
+                                    (fringe (cdr tree))))
+        (else (cons (car tree)
+                    (fringe (cdr tree))))))
+
