@@ -102,3 +102,49 @@
   (if (<= k 1)
       #t
       (iter (car positions) (cdr positions))))
+
+;; Doing this a second time a couple of months later
+
+(define (enumerate-interval from to)
+  (if (> from to)
+      ()
+      (cons from
+            (enumerate-interval (+ from 1) to))))
+
+(define (accumulate op nil-term sequence)
+  (if (null? sequence)
+      nil-term
+      (op (car sequence)
+          (accumulate op nil-term (cdr sequence)))))
+
+(define (flatmap proc set)
+  (accumulate append () (map proc set)))
+
+(define (queens board-size)
+  (define empty-board '())
+  (define (adjoin-position row col rest-of-queens)
+    (append (list (list row col)) rest-of-queens))
+  (define (safe? k positions)
+    (let ((row (caar positions))
+          (col (cadar positions)))
+      (= 0
+         (length (filter (lambda (pos)
+                           (let ((r (car pos))
+                                 (c (cadr pos)))
+                             (or (= row r)
+                                 (= col c)
+                                 (= (abs (- row r))
+                                    (abs (- col c))))))
+                         (cdr positions))))))
+  (define (queen-cols k)  
+    (if (= k 0)
+        (list empty-board)
+        (filter
+         (lambda (positions) (safe? k positions))
+         (flatmap
+          (lambda (rest-of-queens)
+            (map (lambda (new-row)
+                   (adjoin-position new-row k rest-of-queens))
+                 (enumerate-interval 1 board-size)))
+          (queen-cols (- k 1))))))
+  (queen-cols board-size))
