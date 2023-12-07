@@ -1,0 +1,78 @@
+seeds: 79 14 55 13
+
+seed-to-soil map:
+50 98 2
+52 50 48
+
+soil-to-fertilizer map:
+0 15 37
+37 52 2
+39 0 15
+
+fertilizer-to-water map:
+49 53 8
+0 11 42
+42 0 7
+57 7 4
+
+water-to-light map:
+88 18 7
+18 25 70
+
+light-to-temperature map:
+45 77 23
+81 45 19
+68 64 13
+
+temperature-to-humidity map:
+0 69 1
+1 0 69
+
+humidity-to-location map:
+60 56 37
+56 93 4
+
+func lowestLocationNumV2(al almanac) int {
+	var (
+		n     = runtime.GOMAXPROCS(0)
+		inCh  = make(chan int, n)
+		outCh = make(chan int, n)
+		wg    = &sync.WaitGroup{}
+	)
+
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		go func() {
+			for source := range inCh {
+				dest := source
+				for _, rngs := range al.ranges {
+					// Any source numbers that aren't mapped correspond to the same destination number.
+					for _, r := range rngs {
+						if r.source <= dest && dest < r.source+r.length {
+							d := dest - r.source
+							dest = r.dest + d
+							break
+						}
+					}
+				}
+
+				outCh <- dest
+			}
+			wg.Done()
+		}()
+	}
+
+	var min int = math.MaxInt
+	wg.Add(1)
+	go func() {
+		for newmin := range outCh {
+			if min < newmin {
+				min = newmin
+			}
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	return min
