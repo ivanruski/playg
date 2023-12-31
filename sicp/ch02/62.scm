@@ -1,4 +1,4 @@
-;; Exercise 2.62. Give a (n) implementation of union-set for sets represented as
+;; Exercise 2.62. Give a O(n) implementation of union-set for sets represented as
 ;; ordered lists.
 
 ;; Effectively, do a merge of to sorted sets just like in merge sort
