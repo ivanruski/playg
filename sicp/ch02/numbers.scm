@@ -61,6 +61,10 @@
   ;; ex.79
   (put 'equ? '(scheme-number scheme-number)
        (lambda (x y) (= x y)))
+
+  ;; ex.80
+  (put '=zero? '(scheme-number)
+       (lambda (x) (= x 0)))
   
   'done)
 
@@ -95,6 +99,11 @@
     (and (= (numer a) (numer b))
          (= (denom a) (denom b))))
 
+  ;; ex.80
+  (define (=zero? a)
+    (or (= (numer a) 0)
+        (= (denom a) 0)))
+
   ;; interface to rest of the system
   (define (tag x) (attach-tag 'rational x))
   (put 'add '(rational rational)
@@ -112,6 +121,9 @@
   ;; ex.79
   (put 'equ? '(rational rational) equ?)
 
+  ;; ex.80
+  (put '=zero? '(rational) =zero?)
+
   'done)
 
 (define (make-rational n d)
@@ -124,6 +136,11 @@
   (if (eq? (type-tag a) (type-tag b))
       (apply-generic 'equ? a b)
       #f))
+
+;; ex.80
+;; analogous to ex.79
+(define (=zero? a)
+  (apply-generic '=zero? a))
 
 ;; Complex numbers
 (define (install-complex-package)
@@ -165,6 +182,10 @@
   ;; point the complex equ? to the public equ?, like ex.77
   (put 'equ? '(complex complex) equ?)
 
+  ;; ex.80
+  ;; same as above
+  (put '=zero? '(complex) =zero?)
+
   'done)
 
 (define (make-complex-from-real-imag x y)
@@ -190,6 +211,11 @@
     (and (= (magnitude a) (magnitude b))
          (= (angle a) (angle b))))
 
+  ;; ex.80
+  (define (=zero? a)
+    (and (= (magnitude a) 0)
+         (= (angle a) 0)))
+
   ;; interface to the rest of the system
   (define (tag x) (attach-tag 'polar x))
   (put 'real-part '(polar) real-part)
@@ -203,6 +229,9 @@
 
   ;; ex.79
   (put 'equ? '(polar polar) equ?)
+
+  ;; ex.80
+  (put '=zero? '(polar) =zero?)
 
   'done)
 
@@ -219,10 +248,15 @@
   (define (make-from-mag-ang r a) 
     (cons (* r (cos a)) (* r (sin a))))
 
-  ;; ex. 79
+  ;; ex.79
   (define (equ? a b)
     (and (= (real-part a) (real-part b))
          (= (imag-part a) (imag-part b))))
+
+  ;; ex.80
+  (define (=zero? a)
+    (and (= (real-part a) 0)
+         (= (imag-part a) 0)))
 
   ;; interface to the rest of the system
   (define (tag x) (attach-tag 'rectangular x))
@@ -237,7 +271,10 @@
 
   ;; ex.79
   (put 'equ? '(rectangular rectangular) equ?)
-  
+
+  ;; ex.80
+  (put '=zero? '(rectangular) =zero?)
+
   'done)
 
 (define (add x y) (apply-generic 'add x y))
