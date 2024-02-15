@@ -35,15 +35,6 @@
         (else
          (error "Bad tagged datum -- CONTENTS" datum))))
 
-(define (apply-generic op . args)
-  (let ((type-tags (map type-tag args)))
-    (let ((proc (get op type-tags)))
-      (if proc
-          (apply proc (map contents args))
-          (error
-            "No method for these types -- APPLY-GENERIC"
-            (list op type-tags))))))
-
 (define (install-scheme-number-package)
   (define (tag x)
     (attach-tag 'scheme-number x))
@@ -65,6 +56,10 @@
   ;; ex.80
   (put '=zero? '(scheme-number)
        (lambda (x) (= x 0)))
+
+  ;; ex.81
+  (put 'exp '(scheme-number scheme-number)
+      (lambda (x y) (tag (expt x y)))) ; using primitive expt
   
   'done)
 
@@ -281,6 +276,7 @@
 (define (sub x y) (apply-generic 'sub x y))
 (define (mul x y) (apply-generic 'mul x y))
 (define (div x y) (apply-generic 'div x y))
+(define (exp x y) (apply-generic 'exp x y))
 
 ;; install
 (install-scheme-number-package)
@@ -288,3 +284,65 @@
 (install-complex-package)
 (install-polar-package)
 (install-rectangular-package)
+
+;; coercion
+
+(define coercion-table '())
+
+(define (put-coercion from-type to-type proc)
+  (cond ((null? (get-coercion from-type to-type))
+         (set! coercion-table (cons (list from-type to-type proc) coercion-table))
+         coercion-table)
+        (else coercion-table)))
+
+(define (get-coercion from-type to-type)
+  (define (iter-table table)
+    (if (null? table)
+        '()
+        (let ((elem (car table))
+              (rest (cdr table)))
+          (if (and (equal? (car elem) from-type)
+                   (equal? (cadr elem) to-type))
+              (caddr elem)
+              (iter-table rest)))))
+  (iter-table coercion-table))
+
+;; ex.81
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if (not (null? proc))
+          (apply proc (map contents args))
+          (if (= (length args) 2)
+              (let ((type1 (car type-tags))
+                    (type2 (cadr type-tags))
+                    (a1 (car args))
+                    (a2 (cadr args)))
+                (if (eq? type1 type2)
+                    (error "No method for these types" (list op type-tags))
+                    (let ((t1->t2 (get-coercion type1 type2))
+                          (t2->t1 (get-coercion type2 type1)))
+                      (cond ((not (null? t1->t2))
+                             (apply-generic op (t1->t2 a1) a2))
+                            ((not (null? t2->t1))
+                             (apply-generic op a1 (t2->t1 a2)))
+                            (else
+                             (error "No method for these types"
+                                    (list op type-tags)))))))
+                (error "No method for these types"
+                       (list op type-tags)))))))
+
+;; ex.81
+(define (install-coercion-package)
+  (define (scheme-number->scheme-number n) n)
+
+  (define (complex->complex z) z)
+
+  (put-coercion 'scheme-number 'scheme-number
+                scheme-number->scheme-number)
+
+  (put-coercion 'complex 'complex complex->complex)
+
+  )
+
+(install-coercion-package)
