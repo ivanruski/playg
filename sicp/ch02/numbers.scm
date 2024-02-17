@@ -137,6 +137,19 @@
 (define (=zero? a)
   (apply-generic '=zero? a))
 
+;; ex.77
+(define (real-part z)
+  (apply-generic 'real-part z))
+
+(define (imag-part z)
+  (apply-generic 'imag-part z))
+
+(define (magnitude z)
+  (apply-generic 'magnitude z))
+
+(define (angle z)
+  (apply-generic 'angle z))
+
 ;; Complex numbers
 (define (install-complex-package)
   ;; imported procedures from rectangular and polar packages
@@ -172,6 +185,12 @@
        (lambda (x y) (tag (make-from-real-imag x y))))
   (put 'make-from-mag-ang 'complex
        (lambda (r a) (tag (make-from-mag-ang r a))))
+
+  ;; ex.77
+  (put 'real-part '(complex) real-part)
+  (put 'imag-part '(complex) imag-part)
+  (put 'magnitude '(complex) magnitude)
+  (put 'angle '(complex) angle)
 
   ;; ex.79
   ;; point the complex equ? to the public equ?, like ex.77
@@ -308,41 +327,66 @@
   (iter-table coercion-table))
 
 ;; ex.81
-(define (apply-generic op . args)
-  (let ((type-tags (map type-tag args)))
-    (let ((proc (get op type-tags)))
-      (if (not (null? proc))
-          (apply proc (map contents args))
-          (if (= (length args) 2)
-              (let ((type1 (car type-tags))
-                    (type2 (cadr type-tags))
-                    (a1 (car args))
-                    (a2 (cadr args)))
-                (if (eq? type1 type2)
-                    (error "No method for these types" (list op type-tags))
-                    (let ((t1->t2 (get-coercion type1 type2))
-                          (t2->t1 (get-coercion type2 type1)))
-                      (cond ((not (null? t1->t2))
-                             (apply-generic op (t1->t2 a1) a2))
-                            ((not (null? t2->t1))
-                             (apply-generic op a1 (t2->t1 a2)))
-                            (else
-                             (error "No method for these types"
-                                    (list op type-tags)))))))
-                (error "No method for these types"
-                       (list op type-tags)))))))
-
-;; ex.81
 (define (install-coercion-package)
   (define (scheme-number->scheme-number n) n)
+ ;;  (define (complex->complex z) z)
 
-  (define (complex->complex z) z)
+  (define (scheme-number->complex n)
+    (make-complex-from-real-imag (contents n) 0))
 
-  (put-coercion 'scheme-number 'scheme-number
-                scheme-number->scheme-number)
+  (define (scheme-number->rational n)
+    (make-rational (contents n) 1))
 
-  (put-coercion 'complex 'complex complex->complex)
+  (put-coercion 'scheme-number 'scheme-number scheme-number->scheme-number)
+  ;; (put-coercion 'complex 'complex complex->complex)
 
-  )
+  (put-coercion 'scheme-number 'complex scheme-number->complex)
+  (put-coercion 'scheme-number 'rational scheme-number->rational)
+
+  'done)
 
 (install-coercion-package)
+
+;; ex.82
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args))
+        (coerced-types (try-coerce-types (map type-tag args))))
+    (let ((proc (get op coerced-types)))
+      (if (or (null? proc) (null? type-tags))
+          (error "No method for these types" (list op type-tags))
+          (apply proc (map (lambda (datum)
+                             (let ((data (contents datum))
+                                   (type (type-tag datum))
+                                   (coerced-type (car coerced-types)))
+                               (if (eq? type coerced-type) ;; we don't have a->a coercions
+                                   data
+                                   (contents ((get-coercion type coerced-type) datum)))))
+                           args))))))
+
+(define (try-coerce-types type-tags)
+  (define (coercions type-tags)
+    (map (lambda (type1)
+           (map (lambda (type2)
+                  (if (eq? type1 type2)
+                      type1
+                      (let ((proc (get-coercion type2 type1)))
+                        (if (not (null? proc))
+                            type1
+                            '()))))
+                type-tags))
+         type-tags))
+
+  (define (valid-coercions coersions-lists)
+    ;; (display coersions-lists)
+    ;; (newline)
+    (filter (lambda (list)
+            (let ((filtered (filter (lambda (el) (symbol? el)) list)))
+              (= (length filtered)
+                 (length type-tags))))
+            coersions-lists))
+
+  ;; take the first valid coercion
+  (let ((valid-list (valid-coercions (coercions type-tags))))
+    (if (= (length valid-list) 0)
+        '()
+        (car valid-list))))
