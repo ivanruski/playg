@@ -59,7 +59,11 @@
 
   ;; ex.81
   (put 'exp '(scheme-number scheme-number)
-      (lambda (x y) (tag (expt x y)))) ; using primitive expt
+       (lambda (x y) (tag (expt x y)))) ;; using primitive expt
+
+  ;; ex.83
+  (put 'raise '(scheme-number)
+       (lambda (num) (make-rational num 1)))
   
   'done)
 
@@ -119,10 +123,32 @@
   ;; ex.80
   (put '=zero? '(rational) =zero?)
 
+  ;; ex.83
+  (put 'raise '(rational)
+       (lambda (rat) (make-real (* 1.0 (/ (numer rat) (denom rat))))))
+
   'done)
 
 (define (make-rational n d)
   ((get 'make 'rational) n d))
+
+;; ex.83
+(define (install-real-number-package)
+
+  (define (num-part real-num) (car real-num))
+
+  ;; simply put the number within list to distinguish real from scheme numbers
+  (put 'make 'real
+       (lambda (n) (attach-tag 'real (list n))))
+
+  (put 'raise '(real)
+       (lambda (n) (make-complex-from-real-imag (num-part n) 0)))
+
+  'done)
+
+;; ex.83
+(define (make-real num)
+  ((get 'make 'real) num))
 
 ;; ex.79
 ;; define equ? before the complex package, because the complex equ? points to
@@ -300,6 +326,7 @@
 ;; install
 (install-scheme-number-package)
 (install-rational-package)
+(install-real-number-package)
 (install-complex-package)
 (install-polar-package)
 (install-rectangular-package)
@@ -390,3 +417,7 @@
     (if (= (length valid-list) 0)
         '()
         (car valid-list))))
+
+;; ex.83
+(define (raise arg)
+  (apply-generic 'raise arg))

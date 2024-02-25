@@ -4,50 +4,28 @@
 ;; objects of that type one level in the tower. Show how to install a generic
 ;; raise operation that will work for each type (except complex).
 
-(define (install-real-number-package)
+;; Everything in numbers.scm prefixed with ex.83 is part of this exercise.
+;;
+;; We have a raise procedure defined in every package and a generic raise proc
+;; which calls apply-generic.
 
-  ;; simply wrap the number with the rational tag
-  (put 'make 'real
-       (lambda (n) (attach-tag 'real n)))
-  
-  'done)
+(define (raise arg)
+  (apply-generic 'raise arg))
 
-(install-real-number-package)
-
-(define (make-real num)
-  ((get 'make 'real) num))
+;; With this approach if we want to coerce scheme-number to complex number we
+;; can't do that directly. We would have to do successive coercions.
 
 ;; attach-tag ignores the type when the type is scheme-number
 (make-real (make-scheme-number 5))
+
 (make-real (make-rational 5 5))
 
-;; for the purpose of the exercise simply wrap the child type to the parent when coercing
-(put-coercion 'rational 'real (lambda (rat) (make-real rat)))
-(put-coercion 'real 'complex (lambda (real) (attach-tag 'complex real)))
+(raise (make-scheme-number 5))
+(raise (make-rational 5 5))
+(raise (make-real (make-rational 5 5)))
+(raise (make-complex-from-real-imag 5 5))
 
-;; raise uses type coercion
-(define (raise-num number)
-  (define (parent type)
-    (cond ((eq? type 'scheme-number) 'rational)
-          ((eq? type 'rational) 'real)
-          ((eq? type 'real) 'complex)
-          ((eq? type 'complex) '())
-          (else (error "Unknown type" type))))
-
-  (let ((type (type-tag number))
-        (parent-type (parent (type-tag number))))
-    (let ((coerce (get-coercion type parent-type)))
-      (cond ((null? parent-type) number)
-            ((null? coerce) (error "coercion not found for related types"
-                                  (list type parent-type)))
-            (else (coerce number))))))
-
-(raise-num (make-scheme-number 5))
-(raise-num (make-rational 5 5))
-(raise-num (make-real (make-rational 5 5)))
-(raise-num (make-complex-from-real-imag 5 5))
-
-(raise-num (make-scheme-number 5))
-(raise-num (raise-num (make-scheme-number 5)))
-(raise-num (raise-num (raise-num (make-scheme-number 5))))
-(raise-num (raise-num (raise-num (raise-num (make-scheme-number 5)))))
+(raise (make-scheme-number 5))
+(raise (raise (make-scheme-number 5)))
+(raise (raise (raise (make-scheme-number 5))))
+(raise (raise (raise (raise (make-scheme-number 5)))))
