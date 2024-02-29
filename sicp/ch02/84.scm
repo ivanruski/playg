@@ -22,13 +22,12 @@
                 (list head-type)
                 (sort-types (filter (lambda (t) (> (type-rank t) head-rank)) rest))))))
 
-
-(define (try-raise arg target-type)
-  (if (eq? (type-tag arg) target-type)
-      arg
-      (try-raise (raise arg) target-type)))
-
 (define (apply-generic op . args)
+  (define (try-raise arg target-type)
+    (if (eq? (type-tag arg) target-type)
+        arg
+        (try-raise (raise arg) target-type)))
+  
   (let ((type-tags (map type-tag args)))
     (let ((broadest-type (last (sort-types type-tags)))
           (proc (get op type-tags)))
