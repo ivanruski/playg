@@ -64,6 +64,10 @@
   ;; ex.83
   (put 'raise '(scheme-number)
        (lambda (num) (make-rational num 1)))
+
+  ;; ex.84
+  (put 'parent-type 'scheme-number
+       (lambda () 'rational))
   
   'done)
 
@@ -127,6 +131,10 @@
   (put 'raise '(rational)
        (lambda (rat) (make-real (* 1.0 (/ (numer rat) (denom rat))))))
 
+  ;; ex.84
+  (put 'parent-type 'rational
+       (lambda () 'real))
+
   'done)
 
 (define (make-rational n d)
@@ -143,6 +151,10 @@
 
   (put 'raise '(real)
        (lambda (n) (make-complex-from-real-imag (num-part n) 0)))
+
+  ;; ex.84
+  (put 'parent-type 'real
+       (lambda ()  'complex))
 
   'done)
 
@@ -226,6 +238,10 @@
   ;; same as above
   (put '=zero? '(complex) =zero?)
 
+  ;; ex.84
+  (put 'parent-type 'complex
+       (lambda () '()))
+
   'done)
 
 (define (make-complex-from-real-imag x y)
@@ -273,6 +289,10 @@
   ;; ex.80
   (put '=zero? '(polar) =zero?)
 
+  ;; ex.84
+  (put 'parent-type 'polar
+       (lambda () 'complex))
+
   'done)
 
 (define (install-rectangular-package)
@@ -314,6 +334,10 @@
 
   ;; ex.80
   (put '=zero? '(rectangular) =zero?)
+
+  ;; ex.84
+  (put 'parent-type 'rectangular
+       (lambda () 'complex))
 
   'done)
 
@@ -421,3 +445,47 @@
 ;; ex.83
 (define (raise arg)
   (apply-generic 'raise arg))
+
+;; ex.84
+;; TODO: can I use apply-generic ?
+(define (parent-type type)
+  (let ((fn (get 'parent-type type)))
+    (if (null? fn)
+        (error "unknown type -- PARENT-TYPE" type)
+        (fn))))
+
+(define (type-rank type)
+  (let ((pt (parent-type type)))
+    (if (null? pt)
+        0
+        (- (type-rank pt) 1))))
+
+;; not a stable sort but it should do the job
+(define (sort-types types)
+  (if (null? types)
+      '()
+      (let ((head-type (car types))
+            (head-rank (type-rank (car types)))
+            (rest (cdr types)))
+        (append (sort-types (filter (lambda (t) (<= (type-rank t) head-rank)) rest))
+                (list head-type)
+                (sort-types (filter (lambda (t) (> (type-rank t) head-rank)) rest))))))
+
+
+(define (try-raise arg target-type)
+  (if (eq? (type-tag arg) target-type)
+      arg
+      (try-raise (raise arg) target-type)))
+
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args)))
+    (let ((broadest-type (last (sort-types type-tags)))
+          (proc (get op type-tags)))
+      (if (not (null? proc))
+          (apply proc (map contents args))
+          ;; attempt coercion and try again
+          (let ((raised-args (map (lambda (arg) (try-raise arg broadest-type)) args)))
+            (let ((proc (get op (map type-tag raised-args))))
+              (if (null? proc)
+                  (error "No method for these types" (list op (map type-tag raised-args)))
+                  (apply proc (map contents raised-args)))))))))
