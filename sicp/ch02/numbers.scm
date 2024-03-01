@@ -78,7 +78,14 @@
   ;; ex.85
   (put 'project '(scheme-number)
        (lambda (num) num))
-  
+
+  ;; ex.86
+  (put 'cos '(scheme-number) (lambda (x) (cos x)))
+  (put 'sin '(scheme-number) (lambda (x) (sin x)))
+  (put 'sqrt '(scheme-number) (lambda (x) (sqrt x)))
+  (put 'square '(scheme-number) (lambda (x) (square x)))
+  (put 'atan '(scheme-number scheme-number) (lambda (x y) (atan x y)))
+
   'done)
 
 (define (make-scheme-number n)
@@ -117,6 +124,11 @@
     (or (= (numer a) 0)
         (= (denom a) 0)))
 
+  ;; ex.85
+  (define (project-rat rat)
+    (make-scheme-number (round (* 1.0 (/ (numer rat)
+                                         (denom rat))))))
+
   ;; interface to rest of the system
   (define (tag x) (attach-tag 'rational x))
   (put 'add '(rational rational)
@@ -146,10 +158,15 @@
        (lambda () 'real))
 
   ;; ex.85
-  (put 'project '(rational)
-       (lambda (rat)
-         (make-scheme-number (round (* 1.0
-                                       (/ (numer rat) (denom rat)))))))
+  (put 'project '(rational) project-rat)
+
+    ;; ex.86
+  (put 'cos '(rational) (lambda (x) (cos (project-rat x))))
+  (put 'sin '(rational) (lambda (x) (sin (project-rat x))))
+  (put 'sqrt '(rational) (lambda (x) (sqrt (project-rat x))))
+  (put 'square '(rational) (lambda (x) (square (project-rat x))))
+  (put 'atan '(rational rational) (lambda (x y) (atan (project-rat x) (project-rat y))))
+
   'done)
 
 (define (make-rational n d)
@@ -255,17 +272,17 @@
     ((get 'make-from-mag-ang 'polar) r a))
   ;; internal procedures
   (define (add-complex z1 z2)
-    (make-from-real-imag (+ (real-part z1) (real-part z2))
-                         (+ (imag-part z1) (imag-part z2))))
+    (make-from-real-imag (add (real-part z1) (real-part z2))
+                         (add (imag-part z1) (imag-part z2))))
   (define (sub-complex z1 z2)
-    (make-from-real-imag (- (real-part z1) (real-part z2))
-                         (- (imag-part z1) (imag-part z2))))
+    (make-from-real-imag (sub (real-part z1) (real-part z2))
+                         (sub (imag-part z1) (imag-part z2))))
   (define (mul-complex z1 z2)
-    (make-from-mag-ang (* (magnitude z1) (magnitude z2))
-                       (+ (angle z1) (angle z2))))
+    (make-from-mag-ang (mul (magnitude z1) (magnitude z2))
+                       (add (angle z1) (angle z2))))
   (define (div-complex z1 z2)
-    (make-from-mag-ang (/ (magnitude z1) (magnitude z2))
-                       (- (angle z1) (angle z2))))
+    (make-from-mag-ang (div (magnitude z1) (magnitude z2))
+                       (sub (angle z1) (angle z2))))
 
   ;; interface to rest of the system
   (define (tag z) (attach-tag 'complex z))
@@ -316,22 +333,22 @@
   (define (angle z) (cdr z))
   (define (make-from-mag-ang r a) (cons r a))
   (define (real-part z)
-    (* (magnitude z) (cos (angle z))))
+    (mul (magnitude z) (_cos (angle z))))
   (define (imag-part z)
-    (* (magnitude z) (sin (angle z))))
+    (mul (magnitude z) (_sin (angle z))))
   (define (make-from-real-imag x y) 
-    (cons (sqrt (+ (square x) (square y)))
-          (atan y x)))
+    (cons (_sqrt (add (_square x) (_square y)))
+          (_atan y x)))
 
   ;; ex.79
-  (define (equ? a b)
-    (and (= (magnitude a) (magnitude b))
-         (= (angle a) (angle b))))
+  (define (equ-polar? a b)
+    (and (equ? (magnitude a) (magnitude b))
+         (equ? (angle a) (angle b))))
 
   ;; ex.80
-  (define (=zero? a)
-    (and (= (magnitude a) 0)
-         (= (angle a) 0)))
+  (define (=zero-polar? a)
+    (and (=zero? (magnitude a))
+         (=zero? (angle a))))
 
   ;; interface to the rest of the system
   (define (tag x) (attach-tag 'polar x))
@@ -345,10 +362,10 @@
        (lambda (r a) (tag (make-from-mag-ang r a))))
 
   ;; ex.79
-  (put 'equ? '(polar polar) equ?)
+  (put 'equ? '(polar polar) equ-polar?)
 
   ;; ex.80
-  (put '=zero? '(polar) =zero?)
+  (put '=zero? '(polar) =zero-polar?)
 
   ;; ex.84
   (put 'parent-type 'polar
@@ -366,22 +383,22 @@
   (define (imag-part z) (cdr z))
   (define (make-from-real-imag x y) (cons x y))
   (define (magnitude z)
-    (sqrt (+ (square (real-part z))
-             (square (imag-part z)))))
+    (_sqrt (add (_square (real-part z))
+                (_square (imag-part z)))))
   (define (angle z)
-    (atan (imag-part z) (real-part z)))
+    (_atan (imag-part z) (real-part z)))
   (define (make-from-mag-ang r a) 
-    (cons (* r (cos a)) (* r (sin a))))
+    (cons (mul r (cos a)) (mul r (_sin a))))
 
   ;; ex.79
-  (define (equ? a b)
-    (and (= (real-part a) (real-part b))
-         (= (imag-part a) (imag-part b))))
+  (define (equ-rect? a b)
+    (and (equ? (real-part a) (real-part b))
+         (equ? (imag-part a) (imag-part b))))
 
   ;; ex.80
-  (define (=zero? a)
-    (and (= (real-part a) 0)
-         (= (imag-part a) 0)))
+  (define (=zero-rect? a)
+    (and (=zero? (real-part a))
+         (=zero? (imag-part a))))
 
   ;; interface to the rest of the system
   (define (tag x) (attach-tag 'rectangular x))
@@ -395,10 +412,10 @@
        (lambda (r a) (tag (make-from-mag-ang r a))))
 
   ;; ex.79
-  (put 'equ? '(rectangular rectangular) equ?)
+  (put 'equ? '(rectangular rectangular) equ-rect?)
 
   ;; ex.80
-  (put '=zero? '(rectangular) =zero?)
+  (put '=zero? '(rectangular) =zero-rect?)
 
   ;; ex.84
   (put 'parent-type 'rectangular
@@ -415,6 +432,13 @@
 (define (mul x y) (apply-generic 'mul x y))
 (define (div x y) (apply-generic 'div x y))
 (define (exp x y) (apply-generic 'exp x y))
+
+;; ex.86
+(define (_cos x) (apply-generic 'cos x))
+(define (_sin x) (apply-generic 'sin x))
+(define (_atan x y) (apply-generic 'atan x y))
+(define (_sqrt x) (apply-generic 'sqrt x))
+(define (_square x) (apply-generic 'square x))
 
 ;; install
 (install-scheme-number-package)
@@ -558,3 +582,15 @@
               (if (null? proc)
                   (error "No method for these types" (list op (map type-tag raised-args)))
                   (drop (apply proc (map contents raised-args))))))))))
+
+;; ex.85
+(define (project n)
+  (apply-generic 'project n))
+
+(define (drop arg)
+  (if (not (datum? arg))
+      arg
+      (let ((dropped (project arg)))
+        (cond ((eq? (type-tag arg) (type-tag dropped)) arg)
+              ((equ? (raise dropped) arg) (drop dropped))
+              (else arg)))))
