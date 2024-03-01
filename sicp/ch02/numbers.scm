@@ -35,6 +35,11 @@
         (else
          (error "Bad tagged datum -- CONTENTS" datum))))
 
+;; ex.85 - have a way to determine whether we deal with a tagged type
+(define (datum? datum)
+  (or (pair? datum)
+      (number? datum)))
+
 (define (install-scheme-number-package)
   (define (tag x)
     (attach-tag 'scheme-number x))
@@ -62,12 +67,17 @@
        (lambda (x y) (tag (expt x y)))) ;; using primitive expt
 
   ;; ex.83
+  ;; ex.85 - fix raise to round num
   (put 'raise '(scheme-number)
-       (lambda (num) (make-rational num 1)))
+       (lambda (num) (make-rational (round num) 1)))
 
   ;; ex.84
   (put 'parent-type 'scheme-number
        (lambda () 'rational))
+
+  ;; ex.85
+  (put 'project '(scheme-number)
+       (lambda (num) num))
   
   'done)
 
@@ -135,19 +145,60 @@
   (put 'parent-type 'rational
        (lambda () 'real))
 
+  ;; ex.85
+  (put 'project '(rational)
+       (lambda (rat)
+         (make-scheme-number (round (* 1.0
+                                       (/ (numer rat) (denom rat)))))))
   'done)
 
 (define (make-rational n d)
   ((get 'make 'rational) n d))
 
 ;; ex.83
+;; real-number-package can be improved
 (define (install-real-number-package)
 
   (define (num-part real-num) (car real-num))
 
-  ;; simply put the number within list to distinguish real from scheme numbers
-  (put 'make 'real
-       (lambda (n) (attach-tag 'real (list n))))
+  (define (make num)
+    (let ((type (type-tag num)))
+      (cond ((eq? type 'scheme-number) (attach-tag 'real (list num)))
+            ((eq? type 'rational) (attach-tag 'real num))
+            (else
+             (error "cannot make real from type -- MAKE REAL" num)))))
+
+  ;; we need a special function scheme-number because we wrap scheme-numbers inside list
+  ;; to preserve the 'real type-tag. If we don't do this (make-real 5) would return 5
+  ;; instead of (real 5)
+  (define (scheme-number? num)
+    (and (list? num)
+         (= (length num) 1)
+         (number? (car num))))
+
+  ;; ex.85
+  (define (project r)
+    (let ((type (type-tag r))
+          (num (contents r)))
+      (cond ((scheme-number? r) (make-rational (round (num-part r)) 1))
+            ((eq? type 'rational) r)
+            (else
+             (error "unknown type -- PROJECT REAL" type)))))
+
+  (define (equ-real? r1 r2)
+    (cond ((and (scheme-number? r1) (scheme-number? r2)) (equ? (num-part r1) (num-part r2)))
+          ((scheme-number? r1) (equ? (num-part r1) r2))
+          ((scheme-number? r2) (equ? r1 (num-part r2)))
+          (else (equ? r1 r2))))
+
+  ;; ex. 85
+  (define (add-real r1 r2)
+    (cond ((and (scheme-number? r1) (scheme-number? r2)) (add (num-part r1) (num-part r2)))
+          ((scheme-number? r1) (add (num-part r1) r2))
+          ((scheme-number? r2) (add r1 (num-part r2)))
+          (else (add r1 r2))))
+
+  (put 'make 'real make)
 
   (put 'raise '(real)
        (lambda (n) (make-complex-from-real-imag (num-part n) 0)))
@@ -156,6 +207,11 @@
   (put 'parent-type 'real
        (lambda ()  'complex))
 
+  ;; ex.85
+  (put 'project '(real) project)
+  (put 'equ? '(real real) equ-real?)
+  (put 'add '(real real) add-real)
+
   'done)
 
 ;; ex.83
@@ -163,12 +219,10 @@
   ((get 'make 'real) num))
 
 ;; ex.79
-;; define equ? before the complex package, because the complex equ? points to
-;; this equ?
+;; define equ? before the complex package, because the complex equ? points to this equ?
+;; ex.85 - simplify equ?
 (define (equ? a b)
-  (if (eq? (type-tag a) (type-tag b))
-      (apply-generic 'equ? a b)
-      #f))
+  (apply-generic 'equ? a b))
 
 ;; ex.80
 ;; analogous to ex.79
@@ -187,6 +241,10 @@
 
 (define (angle z)
   (apply-generic 'angle z))
+
+;; ex.85
+(define (project n)
+  (apply-generic 'project n))
 
 ;; Complex numbers
 (define (install-complex-package)
@@ -242,6 +300,9 @@
   (put 'parent-type 'complex
        (lambda () '()))
 
+  ;; ex.85
+  (put 'project '(complex) project)
+
   'done)
 
 (define (make-complex-from-real-imag x y)
@@ -293,6 +354,10 @@
   (put 'parent-type 'polar
        (lambda () 'complex))
 
+  ;; ex.85
+  (put 'project '(polar)
+       (lambda (z) (make-real (real-part z))))
+
   'done)
 
 (define (install-rectangular-package)
@@ -338,6 +403,10 @@
   ;; ex.84
   (put 'parent-type 'rectangular
        (lambda () 'complex))
+
+    ;; ex.85
+  (put 'project '(rectangular)
+       (lambda (z) (make-real (real-part z))))
 
   'done)
 
@@ -488,4 +557,4 @@
             (let ((proc (get op (map type-tag raised-args))))
               (if (null? proc)
                   (error "No method for these types" (list op (map type-tag raised-args)))
-                  (apply proc (map contents raised-args)))))))))
+                  (drop (apply proc (map contents raised-args))))))))))
