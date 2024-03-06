@@ -1,4 +1,5 @@
 ;; Code from section 2.5 Systems with Generic Operations
+;; the file was previously named numbers.scm
 
 (define table '())
 
@@ -642,6 +643,7 @@
                               (term-list p2)))
         (error "Polys not in same var -- ADD-POLY"
                (list p1 p2))))
+
   (define (add-terms L1 L2)
     (cond ((empty-termlist? L1) L2)
           ((empty-termlist? L2) L1)
@@ -683,6 +685,18 @@
                       (mul (coeff t1) (coeff t2)))
            (mul-term-by-all-terms t1 (rest-terms L))))))
 
+  ;; ex.87
+  ;;
+  ;; A polynomial having all coefficients equal to zero is called "the zero
+  ;; polynomial"
+  (define (=zero-poly? p)
+    (define (=zero-terms? terms)
+      (or (empty-termlist? terms)
+          (and (=zero? (coeff (first-term terms)))
+               (=zero-terms? (rest-terms terms)))))
+
+    (=zero-terms? (term-list p)))
+
   ;; interface to rest of the system
   (define (tag p) (attach-tag 'polynomial p))
   (put 'add '(polynomial polynomial) 
@@ -691,6 +705,14 @@
        (lambda (p1 p2) (tag (mul-poly p1 p2))))
   (put 'make 'polynomial
        (lambda (var terms) (tag (make-poly var terms))))
+
+  ;; I need parent-type because of how I implemented type-rank
+  (put 'parent-type 'polynomial
+       (lambda () '()))
+
+  ;; ex.87
+  (put '=zero? '(polynomial) =zero-poly?)
+
   'done)
 
 
