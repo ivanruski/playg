@@ -89,19 +89,33 @@
   (put 'square '(scheme-number) (lambda (x) (square x)))
   (put 'atan '(scheme-number scheme-number) (lambda (x y) (atan x y)))
 
+  ;; ex.88
+  (put 'negate '(scheme-number) (lambda (x) (tag (- x))))
+
   'done)
 
 (define (make-scheme-number n)
   ((get 'make 'scheme-number) n))
+
+;; ex.88
+(define (negate n)
+  (apply-generic 'negate n))
 
 ;; Rational numbers
 (define (install-rational-package)
   ;; internal procedures
   (define (numer x) (car x))
   (define (denom x) (cdr x))
+
+  ;; ex.88 - improve make-rat - handle negative values
   (define (make-rat n d)
     (let ((g (gcd n d)))
-      (cons (/ n g) (/ d g))))
+      (let ((num (/ n g))
+            (den (/ d g)))
+        (cond ((and (negative? num) (negative? den)) (cons (- num) (- den)))
+              ((or (negative? num) (negative? den)) (cons (- (abs num)) (abs den)))
+              (else (cons num den))))))
+
   (define (add-rat x y)
     (make-rat (+ (* (numer x) (denom y))
                  (* (numer y) (denom x)))
@@ -163,12 +177,17 @@
   ;; ex.85
   (put 'project '(rational) project-rat)
 
-    ;; ex.86
+  ;; ex.86
   (put 'cos '(rational) (lambda (x) (cos (project-rat x))))
   (put 'sin '(rational) (lambda (x) (sin (project-rat x))))
   (put 'sqrt '(rational) (lambda (x) (sqrt (project-rat x))))
   (put 'square '(rational) (lambda (x) (square (project-rat x))))
   (put 'atan '(rational rational) (lambda (x y) (atan (project-rat x) (project-rat y))))
+
+  ;; ex.88
+  (put 'negate '(rational)
+       (lambda (x)
+         (tag (make-rat (negate (numer x)) (denom x)))))
 
   'done)
 
@@ -181,7 +200,7 @@
 
   (define (num-part real-num) (car real-num))
 
-  (define (make num)
+  (define (make-real num)
     (let ((type (type-tag num)))
       (cond ((eq? type 'scheme-number) (attach-tag 'real (list num)))
             ((eq? type 'rational) (attach-tag 'real num))
@@ -218,7 +237,7 @@
           ((scheme-number? r2) (add r1 (num-part r2)))
           (else (add r1 r2))))
 
-  (put 'make 'real make)
+  (put 'make 'real make-real)
 
   (put 'raise '(real)
        (lambda (n) (make-complex-from-real-imag (num-part n) 0)))
@@ -231,6 +250,13 @@
   (put 'project '(real) project)
   (put 'equ? '(real real) equ-real?)
   (put 'add '(real real) add-real)
+
+  ;; ex.88
+  (put 'negate '(real)
+       (lambda (x)
+         (if (scheme-number? x)
+             (make-real (negate (num-part x)))
+             (make-real (negate x)))))
 
   'done)
 
@@ -323,6 +349,9 @@
   ;; ex.85
   (put 'project '(complex) project)
 
+  ;; ex.88
+  (put 'negate '(complex) negate)
+
   'done)
 
 (define (make-complex-from-real-imag x y)
@@ -378,6 +407,11 @@
   (put 'project '(polar)
        (lambda (z) (make-real (real-part z))))
 
+  ;; ex.88
+  (put 'negate '(polar)
+       (lambda (z) (make-complex-from-mag-ang (negate (magnitude z))
+                                              (negate (angle z)))))
+
   'done)
 
 (define (install-rectangular-package)
@@ -424,9 +458,14 @@
   (put 'parent-type 'rectangular
        (lambda () 'complex))
 
-    ;; ex.85
+  ;; ex.85
   (put 'project '(rectangular)
        (lambda (z) (make-real (real-part z))))
+
+  ;; ex.88
+  (put 'negate '(rectangular)
+       (lambda (z) (make-complex-from-real-imag (negate (real-part z))
+                                                (negate (imag-part z)))))
 
   'done)
 
@@ -697,6 +736,19 @@
 
     (=zero-terms? (term-list p)))
 
+  ;; ex.88
+  (define (negate-poly p)
+    (define (negate-terms terms)
+      (if (empty-termlist? terms)
+          (the-empty-termlist)
+          (let ((term (first-term terms))
+                (rest (rest-terms terms)))
+            (adjoin-term (make-term (order term)
+                                    (negate (coeff term)))
+                         (negate-terms rest)))))
+    (make-poly (variable p)
+               (negate-terms (term-list p))))
+
   ;; interface to rest of the system
   (define (tag p) (attach-tag 'polynomial p))
   (put 'add '(polynomial polynomial) 
@@ -712,6 +764,12 @@
 
   ;; ex.87
   (put '=zero? '(polynomial) =zero-poly?)
+
+  ;; ex.88
+  (put 'negate '(polynomial) negate-poly)
+  (put 'sub '(polynomial polynomial)
+       (lambda (p1 p2)
+         (tag (add-poly p1 (negate-poly p2)))))
 
   'done)
 
