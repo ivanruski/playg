@@ -640,7 +640,115 @@
 
 ;; 2.5.3 Example: Symbolic Algebra
 
-(define (install-polynomial-package)
+;; ex.90
+(define (install-dense-polynomial-package)
+  (define (make-poly variable term-list)
+    (cons variable term-list))
+
+  (define (variable p) (car p))
+
+  (define (term-list p) (cdr p))
+
+  (define (variable? x) (symbol? x))
+
+  (define (same-variable? v1 v2)
+    (and (variable? v1) (variable? v2) (eq? v1 v2)))
+
+  (define (adjoin-term coeff term-list)
+    (cons coeff term-list))
+
+  (define (first-term term-list) term-list)
+  (define (rest-terms term-list) (cdr term-list))
+
+  (define (order term) (- (length term) 1))
+  (define (coeff term) (car term))
+
+  (define (add-poly p1 p2)
+    (if (same-variable? (variable p1) (variable p2))
+        (make-poly (variable p1)
+                   (add-terms (term-list p1)
+                              (term-list p2)))
+        (error "Polys not in same var -- ADD-POLY"
+               (list p1 p2))))
+
+  (define (add-terms L1 L2)
+    (cond ((null? L1) L2)
+          ((null? L2) L1)
+          (else
+           (let ((t1 (first-term L1)) (t2 (first-term L2)))
+             (cond ((> (order t1) (order t2))
+                    (adjoin-term (coeff t1)
+                                 (add-terms (rest-terms L1) L2)))
+                   ((< (order t1) (order t2))
+                    (adjoin-term (coeff t2)
+                                 (add-terms L1 (rest-terms L2))))
+                   (else
+                    (adjoin-term (add (coeff t1) (coeff t2))
+                                 (add-terms (rest-terms L1)
+                                            (rest-terms L2)))))))))
+
+  (define (sub-poly p1 p2)
+    (if (same-variable? (variable p1) (variable p2))
+        (add-poly p1 (negate-poly p2))
+        (error "Polys not in same var -- ADD-POLY"
+               (list p1 p2))))
+
+  (define (negate-poly p1)
+    (make-poly (variable p1)
+               (map negate (term-list p1))))
+
+  (define (mul-poly p1 p2)
+    (if (same-variable? (variable p1) (variable p2))
+        (make-poly (variable p1)
+                   (mul-terms (term-list p1)
+                              (term-list p2)))
+        (error "Polys not in same var -- MUL-POLY"
+               (list p1 p2))))
+
+  (define (mul-terms L1 L2)
+    (if (null? L1)
+        '()
+        (add-terms (mul-term-by-all-terms (first-term L1) L2)
+                   (mul-terms (rest-terms L1) L2))))
+
+  (define (mul-term-by-all-terms t L)
+    (define (make-empty-list n)
+      (if (= n 0)
+          '()
+          (cons 0 (make-empty-list (- n 1)))))
+
+    (let ((torder (order t))
+          (tcoeff (coeff t)))
+      ;; append torder zeros at the end of the terms-list to preserve the
+      ;; correct order
+      (append (map (lambda (c) (mul tcoeff c)) L)
+              (make-empty-list torder))))
+
+  (define (=zero?-poly p)
+    (= (length (term-list p))
+       (length (filter =zero? (term-list p)))))
+
+  (define (tag term-list) (attach-tag 'dense-polynomial term-list))
+  (put 'make 'dense-polynomial
+       (lambda (variable term-list)
+         (tag (make-poly variable term-list))))
+  (put 'add '(dense-polynomial dense-polynomial)
+       (lambda (p1 p2) (tag (add-poly p1 p2))))
+  (put 'mul '(dense-polynomial dense-polynomial)
+       (lambda (p1 p2) (tag (mul-poly p1 p2))))
+  (put 'parent-type 'dense-polynomial
+       (lambda () 'polynomial))
+  (put 'negate '(dense-polynomial)
+       (lambda (p) (tag (negate-poly p))))
+  (put 'sub '(dense-polynomial dense-polynomial)
+       (lambda (p1 p2) (tag (sub-poly p1 p2))))
+  (put '=zero? '(dense-polynomial) =zero?-poly)
+
+  'done)
+
+;; this is the original polynomial package
+;; renamed in ex.90
+(define (install-sparse-polynomial-package)
   ;; internal procedures
   ;; representation of poly
   (define (make-poly variable term-list)
@@ -750,31 +858,75 @@
                (negate-terms (term-list p))))
 
   ;; interface to rest of the system
-  (define (tag p) (attach-tag 'polynomial p))
-  (put 'add '(polynomial polynomial) 
+  (define (tag p) (attach-tag 'sparse-polynomial p))
+  (put 'add '(sparse-polynomial sparse-polynomial) 
        (lambda (p1 p2) (tag (add-poly p1 p2))))
-  (put 'mul '(polynomial polynomial) 
+  (put 'mul '(sparse-polynomial sparse-polynomial)
        (lambda (p1 p2) (tag (mul-poly p1 p2))))
-  (put 'make 'polynomial
+
+  (put 'make 'sparse-polynomial
        (lambda (var terms) (tag (make-poly var terms))))
 
   ;; I need parent-type because of how I implemented type-rank
-  (put 'parent-type 'polynomial
-       (lambda () '()))
+  (put 'parent-type 'sparse-polynomial
+       (lambda () 'polynomial))
 
   ;; ex.87
-  (put '=zero? '(polynomial) =zero-poly?)
+  (put '=zero? '(sparse-polynomial) =zero-poly?)
 
   ;; ex.88
-  (put 'negate '(polynomial) negate-poly)
-  (put 'sub '(polynomial polynomial)
+  (put 'negate '(sparse-polynomial) negate-poly)
+  (put 'sub '(sparse-polynomial sparse-polynomial)
        (lambda (p1 p2)
          (tag (add-poly p1 (negate-poly p2)))))
 
   'done)
 
+;; ex.90
+(define (install-polynomial-package)
+  (define (sparse->dense p))
 
+  (define (add-poly p1 p2)
+    (let ((type1 (type-tag p1))
+          (type2 (type-tag p2)))
+      (cond ((eq? type1 type2) (add p1 p2))
+            ((eq? type1 'sparse-polynomial)
+             (add (sparse->dense p1) p2))
+            (else
+             (add p1 (sparse->dense p2))))))
+
+  (define (tag p) (attach-tag 'polynomial p))
+  (put 'make 'polynomial (tag ((get 'make 'dense-polynomial) p)))
+
+  (put 'add '(polynomial polynomial))
+
+  (put 'mul '(polynomial polynomial))
+
+  (put 'parent-type 'polynomial
+       (lambda () '()))
+
+  (put '=zero? '(polynomial) =zero?)
+
+  (put 'negate '(polynomial) negate-poly)
+
+  (put 'sub '(polynomial polynomial))
+
+  'done)
+
+
+;; ex.90
+(install-dense-polynomial-package)
+(install-sparse-polynomial-package)
 (install-polynomial-package)
 
+;; ex.90
+;; This is erroneous because I don't check whether terms are valid dense
+;; representation.
 (define (make-polynomial var terms)
   ((get 'make 'polynomial) var terms))
+
+(define (make-dense-polynomial var terms)
+  ((get 'make 'dense-polynomial) var terms))
+
+(define (make-sparse-polynomial var terms)
+  ((get 'make 'sparse-polynomial) var terms))
