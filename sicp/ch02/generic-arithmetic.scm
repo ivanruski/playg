@@ -4,10 +4,11 @@
 (define table '())
 
 (define (put op type item)
-  (cond ((null? (get op type))
-         (set! table (cons (list op type item) table))
-         table)
-        (else table)))
+  (set! table (cons (list op type item)
+                    (filter (lambda (entry)
+                              (not (and (eq? op (car entry))
+                                        (eq? type (cadr entry)))))
+                            table))))
 
 (define (get op type)
   (define (iter-table table)
