@@ -1,6 +1,12 @@
 ;; Code from section 2.5 Systems with Generic Operations
 ;; the file was previously named numbers.scm
 
+(define (enumerate-interval from to)
+  (if (> from to)
+      ()
+      (cons from
+            (enumerate-interval (+ from 1) to))))
+
 (define table '())
 
 (define (put op type item)
@@ -483,14 +489,6 @@
 (define (_sqrt x) (apply-generic 'sqrt x))
 (define (_square x) (apply-generic 'square x))
 
-;; install
-(install-scheme-number-package)
-(install-rational-package)
-(install-real-number-package)
-(install-complex-package)
-(install-polar-package)
-(install-rectangular-package)
-
 ;; coercion
 
 (define coercion-table '())
@@ -531,8 +529,6 @@
   (put-coercion 'scheme-number 'rational scheme-number->rational)
 
   'done)
-
-(install-coercion-package)
 
 ;; ex.82
 (define (apply-generic op . args)
@@ -642,292 +638,318 @@
 ;; 2.5.3 Example: Symbolic Algebra
 
 ;; ex.90
-(define (install-dense-polynomial-package)
-  (define (make-poly variable term-list)
-    (cons variable term-list))
+(define (install-sparse-term-list-package)
+  ;; sparse-term representation of x^100 + 2x^2 + 1
+  ;; ((100 1) (2 2) (0 1))
 
-  (define (variable p) (car p))
+  (define (make-term order coeff) (list order coeff))
+  (define (order term) (car term))
+  (define (coeff term) (cadr term))
 
-  (define (term-list p) (cdr p))
+  (define (first-term list) (car list))
+  (define (rest-terms list) (cdr list))
 
-  (define (variable? x) (symbol? x))
+  (define (=zero?-list list)
+    (not (any (lambda (term)
+                (not (=zero? (coeff term))))
+              list)))
 
-  (define (same-variable? v1 v2)
-    (and (variable? v1) (variable? v2) (eq? v1 v2)))
+  (define (adjoin-term term list)
+    (if (=zero? (coeff term))
+        list
+        (cons term list)))
 
-  (define (adjoin-term coeff term-list)
-    (cons coeff term-list))
-
-  (define (first-term term-list) term-list)
-  (define (rest-terms term-list) (cdr term-list))
-
-  (define (order term) (- (length term) 1))
-  (define (coeff term) (car term))
-
-  (define (add-poly p1 p2)
-    (if (same-variable? (variable p1) (variable p2))
-        (make-poly (variable p1)
-                   (add-terms (term-list p1)
-                              (term-list p2)))
-        (error "Polys not in same var -- ADD-POLY"
-               (list p1 p2))))
-
-  (define (add-terms L1 L2)
-    (cond ((null? L1) L2)
-          ((null? L2) L1)
+  (define (add-sparse-lists L1 L2)
+    (cond ((=zero?-list L1) L2)
+          ((=zero?-list L2) L1)
           (else
-           (let ((t1 (first-term L1)) (t2 (first-term L2)))
-             (cond ((> (order t1) (order t2))
-                    (adjoin-term (coeff t1)
-                                 (add-terms (rest-terms L1) L2)))
-                   ((< (order t1) (order t2))
-                    (adjoin-term (coeff t2)
-                                 (add-terms L1 (rest-terms L2))))
-                   (else
-                    (adjoin-term (add (coeff t1) (coeff t2))
-                                 (add-terms (rest-terms L1)
-                                            (rest-terms L2)))))))))
+           (let ((term1 (first-term L1))
+                 (term2 (first-term L2)))
+             (let ((o1 (order term1))
+                   (o2 (order term2))
+                   (c1 (coeff term1))
+                   (c2 (coeff term2)))
+               (cond ((equ? o1 o2) (adjoin-term (make-term o1 (add c1 c2))
+                                                (add-sparse-lists (rest-terms L1)
+                                                                  (rest-terms L2))))
+                     ;; TODO: I need generic comparison
+                     ((> o1 o2) (adjoin-term term1
+                                             (add-sparse-lists (rest-terms L1)
+                                                               L2)))
+                     (else
+                      (adjoin-term term2
+                                   (add-sparse-lists L1
+                                                     (rest-terms L2))))))))))
 
-  (define (sub-poly p1 p2)
-    (if (same-variable? (variable p1) (variable p2))
-        (add-poly p1 (negate-poly p2))
-        (error "Polys not in same var -- ADD-POLY"
-               (list p1 p2))))
-
-  (define (negate-poly p1)
-    (make-poly (variable p1)
-               (map negate (term-list p1))))
-
-  (define (mul-poly p1 p2)
-    (if (same-variable? (variable p1) (variable p2))
-        (make-poly (variable p1)
-                   (mul-terms (term-list p1)
-                              (term-list p2)))
-        (error "Polys not in same var -- MUL-POLY"
-               (list p1 p2))))
-
-  (define (mul-terms L1 L2)
-    (if (null? L1)
+  (define (sparse->dense L)
+    (if (=zero?-list L)
         '()
-        (add-terms (mul-term-by-all-terms (first-term L1) L2)
-                   (mul-terms (rest-terms L1) L2))))
+        (let ((current (first-term L))
+              (rest (rest-terms L)))
+          (if (=zero?-list rest)
+              ;; return list of zeros from the last order to 0
+              (cons (coeff current)
+                    (map (lambda (n) 0)
+                         (enumerate-interval 0 (- (order current) 1))))
+              (let ((next (first-term rest)))
+                (append (list (coeff current))
+                        (map (lambda (n) 0)
+                             (enumerate-interval (+ (order next) 1)
+                                                 (- (order current) 1)))
+                        (sparse->dense rest)))))))
 
-  (define (mul-term-by-all-terms t L)
-    (define (make-empty-list n)
-      (if (= n 0)
-          '()
-          (cons 0 (make-empty-list (- n 1)))))
+  (define (negate-sparse-list L)
+    (if (=zero?-list L)
+        '()
+        (let ((term (first-term L))
+              (rest (rest-terms L)))
+          (adjoin-term (make-term (order term)
+                                  (negate (coeff term)))
+                       (negate-sparse-list rest)))))
 
-    (let ((torder (order t))
-          (tcoeff (coeff t)))
-      ;; append torder zeros at the end of the terms-list to preserve the
-      ;; correct order
-      (append (map (lambda (c) (mul tcoeff c)) L)
-              (make-empty-list torder))))
+  (define (sub-sparse-lists L1 L2)
+    (add-sparse-lists L1 (negate-sparse-list L2)))
 
-  (define (=zero?-poly p)
-    (= (length (term-list p))
-       (length (filter =zero? (term-list p)))))
+  (define (mul-sparse-lists L1 L2)
+    (cond ((null? L1) '())
+          ((null? L2) '())
+          (else
+           (add-sparse-lists (mul-term-by-list (first-term L1) L2)
+                             (mul-sparse-lists (rest-terms L1) L2)))))
 
-  (define (tag term-list) (attach-tag 'dense-polynomial term-list))
-  (put 'make 'dense-polynomial
-       (lambda (variable term-list)
-         (tag (make-poly variable term-list))))
-  (put 'add '(dense-polynomial dense-polynomial)
-       (lambda (p1 p2) (tag (add-poly p1 p2))))
-  (put 'mul '(dense-polynomial dense-polynomial)
-       (lambda (p1 p2) (tag (mul-poly p1 p2))))
-  (put 'parent-type 'dense-polynomial
-       (lambda () 'polynomial))
-  (put 'negate '(dense-polynomial)
-       (lambda (p) (tag (negate-poly p))))
-  (put 'sub '(dense-polynomial dense-polynomial)
-       (lambda (p1 p2) (tag (sub-poly p1 p2))))
-  (put '=zero? '(dense-polynomial) =zero?-poly)
+  (define (mul-term-by-list term L)
+    (let ((o (order term))
+          (c (coeff term)))
+      (map (lambda (t) (make-term (add o (order t))
+                                  (mul c (coeff t))))
+           L)))
+
+  (define (tag L) (attach-tag 'sparse-term-list L))
+
+  ;; TODO: Add validation
+  (put 'make 'sparse-term-list (lambda (L) (tag L)))
+
+  (put '=zero? '(sparse-term-list) =zero?-list)
+
+  (put 'parent-type 'sparse-term-list (lambda () '()))
+
+  (put 'add '(sparse-term-list sparse-term-list)
+       (lambda (L1 L2) (tag (add-sparse-lists L1 L2))))
+
+  ;; Implemented raise for both dense and sparse term lists.
+  ;; In this way apply-generic will coerce the lists to the same type
+  ;; and we'll be able to (add/sub/mul dense sparse) lists.
+  (put 'raise '(sparse-term-list)
+       (lambda (L)
+         (make-dense-term-list (sparse->dense L))))
+
+  (put 'project '(sparse-term-list)
+       (lambda (L) (tag L)))
+
+  (put 'negate '(sparse-term-list)
+       (lambda (L) (tag (negate-sparse-list L))))
+
+  (put 'sub '(sparse-term-list sparse-term-list)
+       (lambda (L1 L2) (tag (sub-sparse-lists L1 L2))))
+
+  (put 'mul '(sparse-term-list sparse-term-list)
+     (lambda (L1 L2) (tag (mul-sparse-lists L1 L2))))
 
   'done)
 
-;; this is the original polynomial package
-;; renamed in ex.90
-(define (install-sparse-polynomial-package)
-  ;; internal procedures
-  ;; representation of poly
-  (define (make-poly variable term-list)
-    (cons variable term-list))
+;; ex. 90
+(define (install-dense-term-list-package)
+  ;; dense-term representation of x^5 + 2x^2 + 1
+  ;; (1 0 0 2 0 1)
+  
+  (define (make-term coeff list) (cons coeff list))
+  (define (order list) (- (length list) 1))
+  (define (coeff list) (car list))
 
-  (define (variable p) (car p))
+  (define (first-term list) list)
+  (define (rest-terms list) (cdr list))
 
-  (define (term-list p) (cdr p))
+  (define (=zero?-list list)
+    (not (any (lambda (coeff)
+                (not (=zero? coeff)))
+              list)))
 
-  (define (variable? x) (symbol? x))
+  (define (adjoin-term coeff list)
+    (cons coeff list))
 
-  (define (same-variable? v1 v2)
-    (and (variable? v1) (variable? v2) (eq? v1 v2)))
-
-  ;; representation of terms and term lists
-  (define (adjoin-term term term-list)
-    (if (=zero? (coeff term))
-        term-list
-        (cons term term-list)))
-
-  (define (the-empty-termlist) '())
-
-  (define (first-term term-list) (car term-list))
-
-  (define (rest-terms term-list) (cdr term-list))
-
-  (define (empty-termlist? term-list) (null? term-list))
-
-  (define (make-term order coeff) (list order coeff))
-
-  (define (order term) (car term))
-
-  (define (coeff term) (cadr term))
-
-  (define (add-poly p1 p2)
-    (if (same-variable? (variable p1) (variable p2))
-        (make-poly (variable p1)
-                   (add-terms (term-list p1)
-                              (term-list p2)))
-        (error "Polys not in same var -- ADD-POLY"
-               (list p1 p2))))
-
-  (define (add-terms L1 L2)
-    (cond ((empty-termlist? L1) L2)
-          ((empty-termlist? L2) L1)
+  (define (add-dense-lists L1 L2)
+    (cond ((null? L1) L2)
+          ((null? L2) L1)
           (else
-           (let ((t1 (first-term L1)) (t2 (first-term L2)))
-             (cond ((> (order t1) (order t2))
-                    (adjoin-term
-                     t1 (add-terms (rest-terms L1) L2)))
-                   ((< (order t1) (order t2))
-                    (adjoin-term
-                     t2 (add-terms L1 (rest-terms L2))))
-                   (else
-                    (adjoin-term
-                     (make-term (order t1)
-                                (add (coeff t1) (coeff t2)))
-                     (add-terms (rest-terms L1)
-                                (rest-terms L2)))))))))
+           (let ((term1 (first-term L1))
+                 (term2 (first-term L2)))
+             (let ((o1 (order term1))
+                   (o2 (order term2))
+                   (c1 (coeff term1))
+                   (c2 (coeff term2)))
+               (cond ((equ? o1 o2)
+                      (adjoin-term (add c1 c2)
+                                   (add-dense-lists (rest-terms L1)
+                                                    (rest-terms L2))))
+                     ;; TODO: I need generic comparison
+                     ((> o1 o2)
+                      (adjoin-term c1
+                                   (add-dense-lists (rest-terms L1)
+                                                    L2)))
+                     (else
+                      (adjoin-term c2
+                                   (add-dense-lists L1
+                                                    (rest-terms L2))))))))))
 
-  (define (mul-poly p1 p2)
-    (if (same-variable? (variable p1) (variable p2))
-        (make-poly (variable p1)
-                   (mul-terms (term-list p1)
-                              (term-list p2)))
-        (error "Polys not in same var -- MUL-POLY"
-               (list p1 p2))))
+  (define (negate-dense-list L)
+    (if (=zero?-list L)
+        '()
+        (adjoin-term (negate (coeff (first-term L)))
+                     (negate-dense-list (rest-terms L)))))
 
-  (define (mul-terms L1 L2)
-    (if (empty-termlist? L1)
-        (the-empty-termlist)
-        (add-terms (mul-term-by-all-terms (first-term L1) L2)
-                   (mul-terms (rest-terms L1) L2))))
+  (define (dense->sparse L)
+    (if (=zero?-list L)
+        '()
+        (let ((first (first-term L))
+              (rest (rest-terms L)))
+          (if (=zero? (coeff first))
+              (dense->sparse rest)
+              (cons (list (order first) (coeff first))
+                    (dense->sparse rest))))))
 
-  (define (mul-term-by-all-terms t1 L)
-    (if (empty-termlist? L)
-        (the-empty-termlist)
-        (let ((t2 (first-term L)))
-          (adjoin-term
-           (make-term (+ (order t1) (order t2))
-                      (mul (coeff t1) (coeff t2)))
-           (mul-term-by-all-terms t1 (rest-terms L))))))
+  (define (sub-dense-lists L1 L2)
+    (add-dense-lists L1 (negate-dense-list L2)))
 
-  ;; ex.87
-  ;;
-  ;; A polynomial having all coefficients equal to zero is called "the zero
-  ;; polynomial"
-  (define (=zero-poly? p)
-    (define (=zero-terms? terms)
-      (or (empty-termlist? terms)
-          (and (=zero? (coeff (first-term terms)))
-               (=zero-terms? (rest-terms terms)))))
+  (define (mul-dense-lists L1 L2)
+    (cond ((null? L1) '())
+          ((null? L2) '())
+          (else
+           (add-dense-lists (mul-term-by-list (first-term L1) L2)
+                            (mul-dense-lists (rest-terms L1) L2)))))
 
-    (=zero-terms? (term-list p)))
+  (define (mul-term-by-list term L)
+    (let ((o (order term))
+          (c (coeff term)))
+      (append (map (lambda (lc) (mul c lc)) L)
+              (map (lambda (x) 0) (enumerate-interval 0 (- o 1))))))
 
-  ;; ex.88
-  (define (negate-poly p)
-    (define (negate-terms terms)
-      (if (empty-termlist? terms)
-          (the-empty-termlist)
-          (let ((term (first-term terms))
-                (rest (rest-terms terms)))
-            (adjoin-term (make-term (order term)
-                                    (negate (coeff term)))
-                         (negate-terms rest)))))
-    (make-poly (variable p)
-               (negate-terms (term-list p))))
+  (define (tag L) (attach-tag 'dense-term-list L))
 
-  ;; interface to rest of the system
-  (define (tag p) (attach-tag 'sparse-polynomial p))
-  (put 'add '(sparse-polynomial sparse-polynomial) 
-       (lambda (p1 p2) (tag (add-poly p1 p2))))
-  (put 'mul '(sparse-polynomial sparse-polynomial)
-       (lambda (p1 p2) (tag (mul-poly p1 p2))))
+  ;; TODO: Add validation
+  (put 'make 'dense-term-list (lambda (L) (tag L)))
 
-  (put 'make 'sparse-polynomial
-       (lambda (var terms) (tag (make-poly var terms))))
+  (put '=zero? '(dense-term-list) =zero?-list)
 
-  ;; I need parent-type because of how I implemented type-rank
-  (put 'parent-type 'sparse-polynomial
-       (lambda () 'polynomial))
+  (put 'parent-type 'dense-term-list (lambda () '()))
 
-  ;; ex.87
-  (put '=zero? '(sparse-polynomial) =zero-poly?)
+  (put 'add '(dense-term-list dense-term-list)
+       (lambda (L1 L2) (tag (add-dense-lists L1 L2))))
 
-  ;; ex.88
-  (put 'negate '(sparse-polynomial) negate-poly)
-  (put 'sub '(sparse-polynomial sparse-polynomial)
-       (lambda (p1 p2)
-         (tag (add-poly p1 (negate-poly p2)))))
+  ;; Implemented raise for both dense and sparse term lists.
+  ;; In this way apply-generic will coerce the lists to the same type
+  ;; and we'll be able to (add/sub/mul dense sparse) lists.
+  (put 'raise '(dense-term-list)
+       (lambda (L)
+         (make-sparse-term-list (dense->sparse L))))
+
+  (put 'project '(dense-term-list)
+       (lambda (L) (tag L)))
+
+  (put 'negate '(dense-term-list)
+       (lambda (L) (tag (negate-dense-list L))))
+
+  (put 'sub '(dense-term-list dense-term-list)
+       (lambda (L1 L2) (tag (sub-dense-lists L1 L2))))
+
+  (put 'mul '(dense-term-list dense-term-list)
+     (lambda (L1 L2) (tag (mul-dense-lists L1 L2))))
 
   'done)
 
 ;; ex.90
 (define (install-polynomial-package)
-  (define (sparse->dense p))
+
+  (define (make-poly variable term-list)
+    (list variable term-list))
+  (define (variable p) (car p))
+  (define (term-list p) (cadr p))
+
+  (define (variable? x) (symbol? x))
+  (define (same-variable? v1 v2)
+    (and (variable? v1) (variable? v2) (eq? v1 v2)))
 
   (define (add-poly p1 p2)
-    (let ((type1 (type-tag p1))
-          (type2 (type-tag p2)))
-      (cond ((eq? type1 type2) (add p1 p2))
-            ((eq? type1 'sparse-polynomial)
-             (add (sparse->dense p1) p2))
-            (else
-             (add p1 (sparse->dense p2))))))
+    (let ((v1 (variable p1))
+          (v2 (variable p2)))
+      (if (not (same-variable? v1 v2))
+          (error "Polys not in same var -- ADD-POLY" (list v1 v2))
+          (make-poly v1 (add (term-list p1) (term-list p2))))))
+
+  (define (negate-poly p)
+    (make-poly (variable p)
+               (negate (term-list p))))
+
+  (define (sub-poly p1 p2)
+    (let ((v1 (variable p1))
+          (v2 (variable p2)))
+      (if (not (same-variable? v1 v2))
+          (error "Polys not in same var -- SUB-POLY" (list v1 v2))
+          (make-poly v1 (sub (term-list p1) (term-list p2))))))
+
+  (define (mul-poly p1 p2)
+    (let ((v1 (variable p1))
+          (v2 (variable p2)))
+      (if (not (same-variable? v1 v2))
+          (error "Polys not in same var -- MUL-POLY" (list v1 v2))
+          (make-poly v1 (mul (term-list p1) (term-list p2))))))
 
   (define (tag p) (attach-tag 'polynomial p))
-  (put 'make 'polynomial (tag ((get 'make 'dense-polynomial) p)))
+  
+  (put 'make 'polynomial
+       (lambda (variable term-list)
+         (tag (list variable term-list))))
 
-  (put 'add '(polynomial polynomial))
+  (put 'add '(polynomial polynomial)
+       (lambda (p1 p2) (tag (add-poly p1 p2))))
 
-  (put 'mul '(polynomial polynomial))
+  (put 'mul '(polynomial polynomial)
+       (lambda (p1 p2) (tag (mul-poly p1 p2))))
 
   (put 'parent-type 'polynomial
        (lambda () '()))
 
-  (put '=zero? '(polynomial) =zero?)
+  (put '=zero? '(polynomial)
+       (lambda (p) (=zero? (term-list p))))
 
-  (put 'negate '(polynomial) negate-poly)
+  (put 'negate '(polynomial)
+       (lambda (p) (tag (negate-poly p))))
 
-  (put 'sub '(polynomial polynomial))
+  (put 'sub '(polynomial polynomial)
+       (lambda (p1 p2) (tag (sub-poly p1 p2))))
 
   'done)
 
-
 ;; ex.90
-(install-dense-polynomial-package)
-(install-sparse-polynomial-package)
-(install-polynomial-package)
-
-;; ex.90
-;; This is erroneous because I don't check whether terms are valid dense
-;; representation.
 (define (make-polynomial var terms)
   ((get 'make 'polynomial) var terms))
 
-(define (make-dense-polynomial var terms)
-  ((get 'make 'dense-polynomial) var terms))
+(define (make-dense-term-list list)
+  ((get 'make 'dense-term-list) list))
 
-(define (make-sparse-polynomial var terms)
-  ((get 'make 'sparse-polynomial) var terms))
+(define (make-sparse-term-list list)
+  ((get 'make 'sparse-term-list) list))
+
+;; install
+(install-scheme-number-package)
+(install-rational-package)
+(install-real-number-package)
+(install-complex-package)
+(install-polar-package)
+(install-rectangular-package)
+
+(install-coercion-package)
+
+;; ex.90
+(install-sparse-term-list-package)
+(install-dense-term-list-package)
+(install-polynomial-package)
