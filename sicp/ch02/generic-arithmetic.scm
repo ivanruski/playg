@@ -560,8 +560,6 @@
          type-tags))
 
   (define (valid-coercions coersions-lists)
-    ;; (display coersions-lists)
-    ;; (newline)
     (filter (lambda (list)
             (let ((filtered (filter (lambda (el) (symbol? el)) list)))
               (= (length filtered)
@@ -724,6 +722,30 @@
                                   (mul c (coeff t))))
            L)))
 
+  ;; ex.91
+  (define (the-empty-termlist) '())
+  (define (empty-termlist? L) (null? L))
+  (define (div-sparse-lists L1 L2)
+    (if (empty-termlist? L1)
+        (list (the-empty-termlist) (the-empty-termlist))
+        (let ((t1 (first-term L1))
+              (t2 (first-term L2)))
+          (if (> (order t2) (order t1))
+              (list (the-empty-termlist) L1)
+              (let ((new-c (div (coeff t1) (coeff t2)))
+                    (new-o (- (order t1) (order t2))))
+                ;; 1. I have to multiply new-c^new-o by L2
+                ;; 2. Substract the result from 1. from L1 i.e. L3 = L1 - (new-c^new-o * L2)
+                ;; 3. call div-terms with L3, L2
+                (let ((quotient (make-term new-o new-c)))
+                  (let ((L3 (sub-sparse-lists L1
+                                              (mul-sparse-lists (adjoin-term quotient '()) L2))))
+                    (let ((rest-of-result (div-sparse-lists L3 L2)))
+                      (let ((QL (car rest-of-result))
+                            (RL (cadr rest-of-result)))
+                        (list (adjoin-term quotient QL)
+                              RL))))))))))
+
   (define (tag L) (attach-tag 'sparse-term-list L))
 
   ;; TODO: Add validation
@@ -753,7 +775,11 @@
        (lambda (L1 L2) (tag (sub-sparse-lists L1 L2))))
 
   (put 'mul '(sparse-term-list sparse-term-list)
-     (lambda (L1 L2) (tag (mul-sparse-lists L1 L2))))
+       (lambda (L1 L2) (tag (mul-sparse-lists L1 L2))))
+
+  ;; ex.91
+  (put 'div '(sparse-term-list sparse-term-list)
+       (lambda (L1 L2) (tag (div-sparse-lists L1 L2))))
 
   'done)
 
@@ -838,6 +864,30 @@
       (append (map (lambda (lc) (mul c lc)) L)
               (map (lambda (x) 0) (enumerate-interval 0 (- o 1))))))
 
+  ;; ex.91
+  (define (the-empty-termlist) '())
+  (define (empty-termlist? L) (null? L))
+  (define (div-dense-lists L1 L2)
+    (if (empty-termlist? L1)
+        (list (the-empty-termlist) (the-empty-termlist))
+        (let ((t1 (first-term L1))
+              (t2 (first-term L2)))
+          (if (> (order t2) (order t1))
+              (list (the-empty-termlist) L1)
+              (let ((new-c (div (coeff t1) (coeff t2)))
+                    (new-o (- (order t1) (order t2))))
+                ;; 1. I have to multiply new-c^new-o by L2
+                ;; 2. Substract the result from 1. from L1 i.e. L3 = L1 - (new-c^new-o * L2)
+                ;; 3. call div-terms with L3, L2
+                (let ((quotient (cons new-c (map (lambda (x) 0) (enumerate-interval 0 (- new-o 1))))))
+                  (let ((L3 (sub-dense-lists L1
+                                             (mul-dense-lists quotient L2))))
+                    (let ((rest-of-result (div-dense-lists L3 L2)))
+                      (let ((QL (car rest-of-result))
+                            (RL (cadr rest-of-result)))
+                        (list (add-dense-lists quotient QL)
+                              RL))))))))))
+
   (define (tag L) (attach-tag 'dense-term-list L))
 
   ;; TODO: Add validation
@@ -867,7 +917,10 @@
        (lambda (L1 L2) (tag (sub-dense-lists L1 L2))))
 
   (put 'mul '(dense-term-list dense-term-list)
-     (lambda (L1 L2) (tag (mul-dense-lists L1 L2))))
+       (lambda (L1 L2) (tag (mul-dense-lists L1 L2))))
+
+  (put 'div '(dense-term-list dense-term-list)
+       (lambda (L1 L2) (tag (div-dense-lists L1 L2))))
 
   'done)
 
@@ -908,6 +961,14 @@
           (error "Polys not in same var -- MUL-POLY" (list v1 v2))
           (make-poly v1 (mul (term-list p1) (term-list p2))))))
 
+  ;; ex.91
+  (define (div-poly p1 p2)
+    (let ((v1 (variable p1))
+          (v2 (variable p2)))
+      (if (not (same-variable? v1 v2))
+          (error "Polys not in same var -- MUL-POLY" (list v1 v2))
+          (make-poly v1 (div (term-list p1) (term-list p2))))))
+
   (define (tag p) (attach-tag 'polynomial p))
   
   (put 'make 'polynomial
@@ -931,6 +992,10 @@
 
   (put 'sub '(polynomial polynomial)
        (lambda (p1 p2) (tag (sub-poly p1 p2))))
+
+  ;; ex.91
+  (put 'div '(polynomial polynomial)
+     (lambda (p1 p2) (tag (div-poly p1 p2))))
 
   'done)
 
