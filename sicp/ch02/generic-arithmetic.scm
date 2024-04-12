@@ -802,7 +802,7 @@
                                                     (rest-terms L2))))))))))
 
   (define (negate-dense-list L)
-    (if (=zero?-list L)
+    (if (null? L)
         '()
         (adjoin-term (negate (coeff (first-term L)))
                      (negate-dense-list (rest-terms L)))))
