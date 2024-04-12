@@ -818,7 +818,12 @@
                     (dense->sparse rest))))))
 
   (define (sub-dense-lists L1 L2)
-    (add-dense-lists L1 (negate-dense-list L2)))
+    (define (remove-trailing-zeroes L)
+      (if (=zero? (coeff (first-term L)))
+          (remove-trailing-zeroes (rest-terms L))
+          L))
+    (let ((new-l (add-dense-lists L1 (negate-dense-list L2))))
+      (remove-trailing-zeroes new-l)))
 
   (define (mul-dense-lists L1 L2)
     (cond ((null? L1) '())
