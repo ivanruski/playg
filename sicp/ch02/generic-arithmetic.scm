@@ -99,6 +99,10 @@
   ;; ex.88
   (put 'negate '(scheme-number) (lambda (x) (tag (- x))))
 
+  ;; ex.92
+  (put 'type-family 'scheme-number
+       (lambda () 'numbers))
+
   'done)
 
 (define (make-scheme-number n)
@@ -196,6 +200,10 @@
        (lambda (x)
          (tag (make-rat (negate (numer x)) (denom x)))))
 
+  ;; ex.92
+  (put 'type-family 'rational
+     (lambda () 'numbers))
+
   'done)
 
 (define (make-rational n d)
@@ -264,6 +272,10 @@
          (if (scheme-number? x)
              (make-real (negate (num-part x)))
              (make-real (negate x)))))
+
+  ;; ex.92
+  (put 'type-family 'real
+     (lambda () 'numbers))
 
   'done)
 
@@ -359,6 +371,10 @@
   ;; ex.88
   (put 'negate '(complex) negate)
 
+  ;; ex.92
+  (put 'type-family 'complex
+     (lambda () 'numbers))
+
   'done)
 
 (define (make-complex-from-real-imag x y)
@@ -419,6 +435,10 @@
        (lambda (z) (make-complex-from-mag-ang (negate (magnitude z))
                                               (negate (angle z)))))
 
+  ;; ex.92
+  (put 'type-family 'polar
+     (lambda () 'numbers))
+
   'done)
 
 (define (install-rectangular-package)
@@ -474,6 +494,10 @@
        (lambda (z) (make-complex-from-real-imag (negate (real-part z))
                                                 (negate (imag-part z)))))
 
+  ;; ex.92
+  (put 'type-family 'rectangular
+     (lambda () 'numbers))
+
   'done)
 
 (define (add x y) (apply-generic 'add x y))
@@ -489,89 +513,6 @@
 (define (_sqrt x) (apply-generic 'sqrt x))
 (define (_square x) (apply-generic 'square x))
 
-;; coercion
-
-(define coercion-table '())
-
-(define (put-coercion from-type to-type proc)
-  (cond ((null? (get-coercion from-type to-type))
-         (set! coercion-table (cons (list from-type to-type proc) coercion-table))
-         coercion-table)
-        (else coercion-table)))
-
-(define (get-coercion from-type to-type)
-  (define (iter-table table)
-    (if (null? table)
-        '()
-        (let ((elem (car table))
-              (rest (cdr table)))
-          (if (and (equal? (car elem) from-type)
-                   (equal? (cadr elem) to-type))
-              (caddr elem)
-              (iter-table rest)))))
-  (iter-table coercion-table))
-
-;; ex.81
-(define (install-coercion-package)
-  (define (scheme-number->scheme-number n) n)
- ;;  (define (complex->complex z) z)
-
-  (define (scheme-number->complex n)
-    (make-complex-from-real-imag (contents n) 0))
-
-  (define (scheme-number->rational n)
-    (make-rational (contents n) 1))
-
-  (put-coercion 'scheme-number 'scheme-number scheme-number->scheme-number)
-  ;; (put-coercion 'complex 'complex complex->complex)
-
-  (put-coercion 'scheme-number 'complex scheme-number->complex)
-  (put-coercion 'scheme-number 'rational scheme-number->rational)
-
-  'done)
-
-;; ex.82
-(define (apply-generic op . args)
-  (let ((type-tags (map type-tag args))
-        (coerced-types (try-coerce-types (map type-tag args))))
-    (let ((proc (get op coerced-types)))
-      (if (or (null? proc) (null? type-tags))
-          (error "No method for these types" (list op type-tags))
-          (apply proc (map (lambda (datum)
-                             (let ((data (contents datum))
-                                   (type (type-tag datum))
-                                   (coerced-type (car coerced-types)))
-                               (if (eq? type coerced-type) ;; we don't have a->a coercions
-                                   data
-                                   (contents ((get-coercion type coerced-type) datum)))))
-                           args))))))
-
-(define (try-coerce-types type-tags)
-  (define (coercions type-tags)
-    (map (lambda (type1)
-           (map (lambda (type2)
-                  (if (eq? type1 type2)
-                      type1
-                      (let ((proc (get-coercion type2 type1)))
-                        (if (not (null? proc))
-                            type1
-                            '()))))
-                type-tags))
-         type-tags))
-
-  (define (valid-coercions coersions-lists)
-    (filter (lambda (list)
-            (let ((filtered (filter (lambda (el) (symbol? el)) list)))
-              (= (length filtered)
-                 (length type-tags))))
-            coersions-lists))
-
-  ;; take the first valid coercion
-  (let ((valid-list (valid-coercions (coercions type-tags))))
-    (if (= (length valid-list) 0)
-        '()
-        (car valid-list))))
-
 ;; ex.83
 (define (raise arg)
   (apply-generic 'raise arg))
@@ -584,6 +525,8 @@
         (error "unknown type -- PARENT-TYPE" type)
         (fn))))
 
+;; this approach became buggy with the introduction of new types which are not
+;; part of the initial tower structure
 (define (type-rank type)
   (let ((pt (parent-type type)))
     (if (null? pt)
@@ -607,18 +550,102 @@
       arg
       (try-raise (raise arg) target-type)))
 
+;;;; ex.92
+;; Refactored apply-generic to look at the type family of each arg. If args are
+;; from different type families, coercion is attempted.
+
+;; Re-use coercion from exercises 81 and 82
+;; coercion
+(define coercion-table '())
+
+(define (put-coercion from-type to-type proc)
+  ;; filter out existing coercion if it already exists
+  ;; that is to allow overriding if needed
+  (let ((new-table (filter (lambda (entry) (not (and (eq? (car entry) from-type)
+                                                     (eq? (cadr entry) to-type))))
+                           coercion-table)))
+    (set! coercion-table (append new-table
+                                 (list (list from-type to-type proc))))))
+(define (get-coercion from-type to-type)
+  (define (iter-table table)
+    (if (null? table)
+        '()
+        (let ((elem (car table))
+              (rest (cdr table)))
+          (if (and (equal? (car elem) from-type)
+                   (equal? (cadr elem) to-type))
+              (caddr elem)
+              (iter-table rest)))))
+  (iter-table coercion-table))
+
+(define (install-coercion-package)
+  (define (scheme-number->dense-term-list num)
+    (make-dense-term-list (list num)))
+
+  (define (scheme-number->sparse-term-list num)
+    (make-sparse-term-list (list (list 0 num))))
+
+  ;; TODO: add for the other number types(rational, real, etc)
+
+  (put-coercion 'scheme-number 'dense-term-list scheme-number->dense-term-list)
+  (put-coercion 'scheme-number 'sparse-term-list scheme-number->sparse-term-list)
+
+  'done)
+
+(define (coerce from to-type)
+  (let ((fn (get-coercion (type-tag from) to-type)))
+    (if (null? fn)
+        '()
+        (fn from))))
+
 (define (apply-generic op . args)
-  (let ((type-tags (map type-tag args)))
-    (let ((broadest-type (last (sort-types type-tags)))
-          (proc (get op type-tags)))
-      (if (not (null? proc))
-          (apply proc (map contents args))
-          ;; attempt coercion and try again
-          (let ((raised-args (map (lambda (arg) (try-raise arg broadest-type)) args)))
-            (let ((proc (get op (map type-tag raised-args))))
-              (if (null? proc)
-                  (error "No method for these types" (list op (map type-tag raised-args)))
-                  (drop (apply proc (map contents raised-args))))))))))
+  (define (try-coerce datums to-type)
+    (filter (lambda (datum) (not (null? datum)))
+            (map (lambda (datum)
+                   (if (eq? (type-tag datum) to-type)
+                            datum
+                            (coerce datum to-type)))
+                 datums)))
+
+  ;; coerce all datums to the same type, pick a datum and attempt to coerce the
+  ;; rest to it. Do that for all elements.
+  (define (coerce-to-same-type datums)
+    (define (iter remaining)
+      (if (null? remaining)
+          (error "there is no common coercion for datums - COERCE-TO-SAME-TYPE" datums)     
+          (let ((coerced (try-coerce datums (type-tag (car remaining)))))
+            (if (= (length datums) (length coerced))
+                coerced
+                (iter (cdr remaining))))))
+    (iter datums))
+
+  (define (same-family? families)
+    (if (= (length families) 1)
+        #t
+        (let ((first (car families)))
+          (not (any (lambda (curr) (not (eq? first curr)))
+                    (cdr families))))))
+
+  (define (apply-same-families op args)
+    (let ((broadest-type (last (sort-types (map type-tag args))))
+              (proc (get op (map type-tag args))))
+          (if (not (null? proc))
+              (apply proc (map contents args))
+              ;; attempt coercion and try again
+              (let ((raised-args (map (lambda (arg) (try-raise arg broadest-type)) args)))
+                (let ((proc (get op (map type-tag raised-args))))
+                  (if (null? proc)
+                      (error "No method for these types" (list op (map type-tag raised-args)))
+                      (drop (apply proc (map contents raised-args)))))))))
+
+  (define (apply-cross-families op args)
+    (apply-same-families op (coerce-to-same-type args)))
+
+  (let ((families (map type-family (map type-tag args))))
+    ;; args are from the same type family
+    (if (same-family? families)
+        (apply-same-families op args)
+        (apply-cross-families op args))))
 
 ;; ex.85
 (define (project n)
@@ -781,6 +808,10 @@
   (put 'div '(sparse-term-list sparse-term-list)
        (lambda (L1 L2) (tag (div-sparse-lists L1 L2))))
 
+  ;; ex.92
+  (put 'type-family 'sparse-term-list
+       (lambda () 'equations))
+
   'done)
 
 ;; ex. 90
@@ -922,6 +953,10 @@
   (put 'div '(dense-term-list dense-term-list)
        (lambda (L1 L2) (tag (div-dense-lists L1 L2))))
 
+  ;; ex.92
+  (put 'type-family 'dense-term-list
+       (lambda () 'equations))
+
   'done)
 
 ;; ex.90
@@ -995,7 +1030,11 @@
 
   ;; ex.91
   (put 'div '(polynomial polynomial)
-     (lambda (p1 p2) (tag (div-poly p1 p2))))
+       (lambda (p1 p2) (tag (div-poly p1 p2))))
+
+  ;; ex.92
+  (put 'type-family 'polynomial
+       (lambda () 'equations))
 
   'done)
 
@@ -1008,6 +1047,13 @@
 
 (define (make-sparse-term-list list)
   ((get 'make 'sparse-term-list) list))
+
+;; ex.92
+(define (type-family type)
+  (let ((fn (get 'type-family type)))
+    (if (null? fn)
+        '()
+        (fn))))
 
 ;; install
 (install-scheme-number-package)
