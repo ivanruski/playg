@@ -305,7 +305,7 @@
 
   (put '=zero? '(rectangular)
        (lambda (x)
-         (equ? x (make-from-real-imag 0 0))))
+         (equ-r? x (make-from-real-imag 0 0)))) ;; TODO: fix in corresponding exercise
 
   (put 'raise '(rectangular)
        (lambda (x) (make-complex-from-real-imag (real-part x)
@@ -471,6 +471,9 @@
 
 ;; count how many raises are required until x is raised to the top-level type of
 ;; the tower
+;;
+;; get-rank requires each type in the generic arithmetic package to define a
+;; raise procedure.
 (define (get-rank x)
   (let ((y (raise x)))
     (if (eq? (type-tag x) (type-tag y))
