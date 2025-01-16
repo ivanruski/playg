@@ -54,3 +54,23 @@ func subsetsOfLenK(nums, curr []int, s, k int) {
 		subsetsOfLenK(nums, append(curr, nums[i]), i+1, k)
 	}
 }
+
+func subsetsV2(s []int) [][]int {
+	if len(s) == 0 {
+		return [][]int{
+			{},
+		}
+	}
+
+	ss := make([][]int, 0, 16)
+	elem := s[0]
+	for _, subs := range subsetsV2(s[1:]) {
+		copys := make([]int, len(subs)+1)
+		copys[0] = elem
+		copy(copys[1:], subs)
+		ss = append(ss, subs)
+		ss = append(ss, copys)
+	}
+
+	return ss
+}
