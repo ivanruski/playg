@@ -43,10 +43,7 @@
 
 (define (matrix-*-matrix m n)
   (let ((cols (transpose-matrix n)))
-    (map (lambda (row)
-           (map (lambda (col) (dot-product row col))
-                cols))
-         m)))
+    (map (lambda (row) (matrix-*-vector cols row)) m)))
 
 (define m '((1 2 3) (4 5 6) (7 8 9)))
 (define n '((1 2 3 4) (4 5 6 6) (6 7 8 9)))
