@@ -20,19 +20,15 @@
 // 1 <= nums.length <= 6
 // -10 <= nums[i] <= 10
 // All the integers of nums are unique.
+//
+//
+// https://leetcode.com/problems/permutations
 
 package main
 
 import (
-	"flag"
 	"fmt"
 )
-
-func main() {
-	n := flag.Int("n", 0, "")
-	flag.Parse()
-	play(*n)
-}
 
 func play(n int) {
 	nums := make([]int, n, n)
@@ -85,4 +81,36 @@ func factorial(n int) (f int) {
 		f *= i
 	}
 	return f
+}
+
+// v2 - build the permutations for nums-x(nums except x) and append
+// x to the resulting list
+func permuteV2(nums []int) [][]int {
+	if len(nums) == 0 {
+		return [][]int{{}}
+	}
+
+	result := [][]int{}
+	for _, n := range nums {
+		for _, s := range permuteV2(exceptN(nums, n)) {
+			r := make([]int, len(nums))
+			copy(r[1:], s)
+			r[0] = n
+			result = append(result, r)
+		}
+	}
+
+	return result
+}
+
+func exceptN(s []int, n int) []int {
+	sub := make([]int, 0, len(s)-1)
+
+	for j := 0; j < len(s); j++ {
+		if s[j] != n {
+			sub = append(sub, s[j])
+		}
+	}
+
+	return sub
 }
