@@ -1,0 +1,50 @@
+(define (enumerate-interval from to)
+  (if (> from to)
+      '()
+      (cons from
+            (enumerate-interval (+ from 1) to))))
+
+(define (accumulate op zero seq)
+  (if (null? seq)
+      zero
+      (op (car seq)
+          (accumulate op zero (cdr seq)))))
+
+(define (flatmap op seq)
+  (accumulate append '() (map op seq)))
+
+(define (s-x seq x)
+  (filter (lambda (n) (not (= n x))) seq))
+
+(define (solve-n-queens n)
+  (define (generate row cols board)
+    (define (is-valid-placement? board row col)
+      (= 0 (length (filter (lambda (pos)
+                             (= (abs (- row (car pos)))
+                                (abs (- col (cadr pos)))))
+                           board))))
+    (cond ((null? cols) (list board))
+          ((= row 1)
+           (flatmap (lambda (col)
+                      (generate (+ row 1) (s-x cols col) (list (list row col))))
+                    cols))
+          (else
+           (flatmap (lambda (col)
+                      (if (is-valid-placement? board row col)
+                          (generate (+ row 1) (s-x cols col) (append board (list (list row col))))
+                          '()))
+                    cols))))
+  (generate 1 (enumerate-interval 1 n) '()))
+
+(define (solve-n-queens-leetcode n)
+  (define (build-row col n)
+    (define (iter curr)
+      (cond ((> curr n) '())
+            ((= curr col) (cons "Q" (iter (+ curr 1))))
+            (else (cons "." (iter (+ curr 1))))))
+    (accumulate string-append "" (iter 1)))
+
+  (map (lambda (board)
+         (map (lambda (pos) (build-row (cadr pos) n))
+              board))
+       (solve-n-queens n)))
