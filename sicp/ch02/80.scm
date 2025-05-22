@@ -54,6 +54,10 @@
 
   (put 'equ? '(scheme-number scheme-number)
        (lambda (x y) (= x y)))
+
+  (put '=zero? '(scheme-number)
+       (lambda (x) (equ? 0 x)))
+
   'done)
 
 (define (make-scheme-number n)
@@ -100,6 +104,9 @@
 
   (put 'equ? '(rational rational) equ?)
 
+  (put '=zero? '(rational)
+       (lambda (x) (= 0 (numer x))))
+
   'done)
 
 (define (make-rational n d)
@@ -135,6 +142,10 @@
 
   (put 'equ? '(polar polar) equ?)
 
+  (put '=zero? '(polar)
+       (lambda (x)
+         (equ? x (make-from-mag-ang 0 0))))
+
   'done)
 
 (define (install-rectangular-package)
@@ -166,6 +177,10 @@
        (lambda (r a) (tag (make-from-mag-ang r a))))
 
   (put 'equ? '(rectangular rectangular) equ?)
+
+  (put '=zero? '(rectangular)
+       (lambda (x)
+         (equ? x (make-from-real-imag 0 0))))
 
   'done)
 
@@ -210,6 +225,8 @@
 
   (put 'equ? '(complex complex) equ?)
 
+  (put '=zero? '(complex) =zero?)
+
   'done)
 
 (define (make-complex-from-real-imag x y)
@@ -234,8 +251,33 @@
 (define (equ? x y)
   (apply-generic 'equ? x y))
 
+(define (=zero? x)
+  (apply-generic '=zero? x))
+
 (install-scheme-number-package)
 (install-rational-package)
 (install-polar-package)
 (install-rectangular-package)
 (install-complex-package)
+
+;; scheme numbers
+(=zero? 0)
+(=zero? -1)
+(=zero? 1)
+
+;; rational
+(=zero? (make-rational 0 1))
+(=zero? (make-rational 1 0)) ;; this should be possible to create
+(=zero? (make-rational 1 1))
+
+;; polar
+(=zero? (make-complex-from-mag-ang 0 0))
+(=zero? (make-complex-from-mag-ang 3 0))
+(=zero? (make-complex-from-mag-ang 0 3))
+(=zero? (make-complex-from-mag-ang 3 3))
+
+;; rectangular
+(=zero? (make-complex-from-real-imag 0 0))
+(=zero? (make-complex-from-real-imag 3 0))
+(=zero? (make-complex-from-real-imag 0 3))
+(=zero? (make-complex-from-real-imag 3 3))
