@@ -52,6 +52,9 @@
        (lambda (x y) (tag (/ x y))))
   (put 'make 'scheme-number
        (lambda (x) (tag x)))
+
+  (put 'equ? '(scheme-number scheme-number)
+       (lambda (x y) (= x y)))
   'done)
 
 (define (make-scheme-number n)
@@ -78,6 +81,11 @@
   (define (div-rat x y)
     (make-rat (* (numer x) (denom y))
               (* (denom x) (numer y))))
+
+  (define (equ? x y)
+    (and (= (numer x) (numer y))
+         (= (denom x) (denom y))))
+
   ;; interface to rest of the system
   (define (tag x) (attach-tag 'rational x))
   (put 'add '(rational rational)
@@ -88,9 +96,11 @@
        (lambda (x y) (tag (mul-rat x y))))
   (put 'div '(rational rational)
        (lambda (x y) (tag (div-rat x y))))
-
   (put 'make 'rational
        (lambda (n d) (tag (make-rat n d))))
+
+  (put 'equ? '(rational rational) equ?)
+
   'done)
 
 (define (make-rational n d)
@@ -108,6 +118,11 @@
   (define (make-from-real-imag x y) 
     (cons (sqrt (+ (square x) (square y)))
           (atan y x)))
+
+  (define (equ? x y)
+    (and (= (magnitude x) (magnitude y))
+         (= (angle x) (angle y))))
+
   ;; interface to the rest of the system
   (define (tag x) (attach-tag 'polar x))
   (put 'real-part '(polar) real-part)
@@ -118,6 +133,9 @@
        (lambda (x y) (tag (make-from-real-imag x y))))
   (put 'make-from-mag-ang 'polar 
        (lambda (r a) (tag (make-from-mag-ang r a))))
+
+  (put 'equ? '(polar polar) equ?)
+
   'done)
 
 (define (install-rectangular-package)
@@ -132,6 +150,11 @@
     (atan (imag-part z) (real-part z)))
   (define (make-from-mag-ang r a) 
     (cons (* r (cos a)) (* r (sin a))))
+
+  (define (equ? x y)
+    (and (= (real-part x) (real-part y))
+         (= (imag-part x) (imag-part y))))
+
   ;; interface to the rest of the system
   (define (tag x) (attach-tag 'rectangular x))
   (put 'real-part '(rectangular) real-part)
@@ -142,6 +165,9 @@
        (lambda (x y) (tag (make-from-real-imag x y))))
   (put 'make-from-mag-ang 'rectangular 
        (lambda (r a) (tag (make-from-mag-ang r a))))
+
+  (put 'equ? '(rectangular rectangular) equ?)
+
   'done)
 
 (define (install-complex-package)
@@ -183,6 +209,8 @@
   (put 'magnitude '(complex) magnitude)
   (put 'angle '(complex) angle)
 
+  (put 'equ? '(complex complex) equ?)
+
   'done)
 
 (define (make-complex-from-real-imag x y)
@@ -204,8 +232,32 @@
 (define (magnitude z) (apply-generic 'magnitude z))
 (define (angle z) (apply-generic 'angle z))
 
+(define (equ? x y)
+  (apply-generic 'equ? x y))
+
 (install-scheme-number-package)
 (install-rational-package)
 (install-polar-package)
 (install-rectangular-package)
 (install-complex-package)
+
+;; scheme numbers
+(equ? 1 1)
+(equ? 1 2)
+(equ? 3 1)
+
+;; rational
+(equ? (make-rational 1 2) (make-rational 2 4))
+(equ? (make-rational 1 2) (make-rational 3 4))
+
+;; complex polar
+(equ? (make-complex-from-mag-ang 3 4) (make-complex-from-mag-ang 3 4))
+(equ? (make-complex-from-mag-ang 4 3) (make-complex-from-mag-ang 3 4))
+
+;; complex rectangular
+(equ? (make-complex-from-real-imag 3 4) (make-complex-from-real-imag 3 4))
+(equ? (make-complex-from-real-imag 4 3) (make-complex-from-real-imag 3 4))
+
+;; providing arguments which are with different types is not supported
+(equ? 1 (make-rational 1 1))
+(equ? (make-complex-from-mag-ang 4 3) (make-complex-from-real-imag 3 4))
