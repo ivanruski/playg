@@ -66,7 +66,7 @@
                     table)))
     (if item
         (caddr item)
-        (error "unknown combination of operation and type -- GET" op type))))
+        item)))
 
 (define (install-scheme-number-package)
   (define (tag x)
@@ -87,6 +87,9 @@
 
   (put '=zero? '(scheme-number)
        (lambda (x) (equ? 0 x)))
+
+  (put 'exp '(scheme-number scheme-number)
+       (lambda (x y) (tag (expt x y)))) ; using primitive expt
 
   'done)
 
@@ -269,9 +272,22 @@
     (let ((proc (get op type-tags)))
       (if proc
           (apply proc (map contents args))
-          (error
-            "No method for these types -- APPLY-GENERIC"
-            (list op type-tags))))))
+          (if (= (length args) 2)
+              (let ((type1 (car type-tags))
+                    (type2 (cadr type-tags))
+                    (a1 (car args))
+                    (a2 (cadr args)))
+                (let ((t1->t2 (get-coercion type1 type2))
+                      (t2->t1 (get-coercion type2 type1)))
+                  (cond (t1->t2
+                         (apply-generic op (t1->t2 a1) a2))
+                        (t2->t1
+                         (apply-generic op a1 (t2->t1 a2)))
+                        (else
+                         (error "No method for these types"
+                                (list op type-tags))))))
+              (error "No method for these types"
+                     (list op type-tags)))))))
 
 (define (real-part z) (apply-generic 'real-part z))
 (define (imag-part z) (apply-generic 'imag-part z))
@@ -289,3 +305,85 @@
 (install-polar-package)
 (install-rectangular-package)
 (install-complex-package)
+
+;; a. With Louis's coercion procedures installed, what happens if apply-generic
+;; is called with two arguments of type scheme-number or two arguments of type
+;; complex for an operation that is not found in the table for those types? For
+;; example, assume that we've defined a generic exponentiation operation:
+;;
+;; (define (exp x y) (apply-generic 'exp x y))
+;;
+;; and have put a procedure for exponentiation in the Scheme-number package but
+;; not in any other package:
+;;
+;; following added to Scheme-number package
+;; (put 'exp '(scheme-number scheme-number)
+;;      (lambda (x y) (tag (expt x y)))) ; using primitive expt
+;;
+;; What happens if we call exp with two complex numbers as arguments?
+
+;; setup
+(define coercion-table '())
+
+(define (put-coercion from to coercion-fn)
+  (set! coercion-table (cons (list from to coercion-fn)
+                             (filter (lambda (entry)
+                                       (not (and (eq? from (car entry)) (eq? to (cadr entry)))))
+                                     coercion-table))))
+
+(define (get-coercion from to)
+  (let ((coercion-entry (find (lambda (entry)
+                                (and (eq? from (car entry)) (eq? to (cadr entry))))
+                              coercion-table)))
+    (if coercion-entry
+        (caddr coercion-entry)
+        coercion-entry)))
+
+(define (scheme-number->complex n)
+  (make-complex-from-real-imag (contents n) 0))
+
+(put-coercion 'scheme-number 'complex scheme-number->complex)
+
+(define (scheme-number->scheme-number n) n)
+(define (complex->complex z) z)
+
+(put-coercion 'scheme-number 'scheme-number
+              scheme-number->scheme-number)
+(put-coercion 'complex 'complex complex->complex)
+
+(define (exp x y) (apply-generic 'exp x y))
+
+;; We enter into an endless recurision, because exp for complex is not found and
+;; we check for complex->complex coercion, which exists and we call
+;; apply-generic again.
+
+(define c1 (make-complex-from-real-imag 1 1))
+(exp c1 c1)
+
+;; b. Is Louis correct that something had to be done about coercion with
+;; arguments of the same type, or does apply-generic work correctly as is?
+;;
+;; In the situation from (a.) coercing to the same type tries to avoid the
+;; problem, but the effect is that we hit another one.
+
+;; c. Modify apply-generic so that it doesn't try coercion if the two arguments
+;; have the same type.
+
+(define (apply-generic op . args)
+  (let ((proc (get op (map type-tag args))))
+    (if proc
+        (apply proc (map contents args))
+        (if (= (length args) 2)
+            (let ((type1 (type-tag (car args)))
+                  (type2 (type-tag (cadr args))))
+              (if (eq? type1 type2)
+                  (error "No method for these types" (list op (map type-tag args)))
+                  (let ((t1->t2 (get-coercion type1 type2))
+                        (t2->t1 (get-coercion type2 type1)))
+                    (cond (t1->t2 (apply-generic op (t1->t2 (car args)) (cadr args)))
+                          (t2->t1 (apply-generic op (car args) (t2->t1 (cadr args))))
+                          (else
+                           (error "No method for these types" (list op (map type-tag args))))))))
+            (error "No method for these types" (list op (map type-tag args)))))))
+
+(exp c1 c1)
