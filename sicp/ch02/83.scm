@@ -63,6 +63,9 @@
   (put 'exp '(scheme-number scheme-number)
        (lambda (x y) (tag (expt x y)))) ; using primitive expt
 
+  (put 'raise '(scheme-number)
+       (lambda (x) (make-rational x 1)))
+
   'done)
 
 (define (make-scheme-number n)
@@ -94,6 +97,9 @@
     (and (= (numer x) (numer y))
          (= (denom x) (denom y))))
 
+  (define (raise x)
+    (make-complex-from-real-imag (/ (numer x) (denom x)) 0))
+
   ;; interface to rest of the system
   (define (tag x) (attach-tag 'rational x))
   (put 'add '(rational rational)
@@ -111,6 +117,9 @@
 
   (put '=zero? '(rational)
        (lambda (x) (= 0 (numer x))))
+
+  (put 'raise '(rational)
+       (lambda (x) (raise x)))
 
   'done)
 
@@ -272,8 +281,17 @@
 (define (=zero? x)
   (apply-generic '=zero? x))
 
+(define (raise x)
+  (apply-generic 'raise x))
+
 (install-scheme-number-package)
 (install-rational-package)
 (install-polar-package)
 (install-rectangular-package)
 (install-complex-package)
+
+
+(define x (make-scheme-number 3))
+(raise x)
+(raise (raise x))
+(raise (raise (raise x)))
