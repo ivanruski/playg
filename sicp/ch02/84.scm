@@ -99,7 +99,8 @@
          (= (denom x) (denom y))))
 
   (define (raise x)
-    (make-complex-from-real-imag (/ (numer x) (denom x)) 0))
+    (make-complex-from-real-imag (/ (* 1.0 (numer x)) ;; force decimal
+                                    (denom x)) 0))
 
   ;; interface to rest of the system
   (define (tag x) (attach-tag 'rational x))
@@ -161,6 +162,10 @@
        (lambda (x)
          (equ? x (make-from-mag-ang 0 0))))
 
+  (put 'raise '(polar)
+       (lambda (x) (make-complex-from-mag-ang (magnitude x)
+                                              (angle x))))
+
   'done)
 
 (define (install-rectangular-package)
@@ -196,6 +201,10 @@
   (put '=zero? '(rectangular)
        (lambda (x)
          (equ? x (make-from-real-imag 0 0))))
+
+  (put 'raise '(rectangular)
+       (lambda (x) (make-complex-from-real-imag (real-part x)
+                                                (imag-part x))))
 
   'done)
 
@@ -242,6 +251,11 @@
 
   (put '=zero? '(complex) =zero?)
 
+  ;; raise of complex, will call, raise of polar/rectangular which in turn will
+  ;; call make-complex-from-x-x, the whole thing results in a couple of useless
+  ;; calls. The other option is raise to be a noop.
+  (put 'raise '(complex) raise)
+
   'done)
 
 (define (make-complex-from-real-imag x y)
@@ -249,7 +263,33 @@
 (define (make-complex-from-mag-ang r a)
   ((get 'make-from-mag-ang 'complex) r a))
 
-;; TODO: implement apply-generic
+;; as per the book:
+;; We can redesign our apply-generic procedure in the following way: For each
+;; type, we need to supply a raise procedure, which ``raises'' objects of that
+;; type one level in the tower. Then when the system is required to operate on
+;; objects of different types it can successively raise the lower types until
+;; all the objects are at the same level in the tower.
+(define (apply-generic op . args)
+  (define (get-highest-ranking-type args)
+    (apply max (map get-rank args)))
+
+  (define (raise-args-to-highest-ranking-type args)
+    (define (raise-n-times arg n)
+      (if (= n 0)
+          arg
+          (raise-n-times (raise arg) (- n 1))))
+
+    (let ((highest (get-highest-ranking-type args)))
+      (map (lambda (x)
+             (raise-n-times x (abs (- highest (get-rank x)))))
+           args)))
+
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+          (apply proc (map contents args))
+          (apply apply-generic op (raise-args-to-highest-ranking-type args))))))
+
 
 (define (real-part z) (apply-generic 'real-part z))
 (define (imag-part z) (apply-generic 'imag-part z))
@@ -265,8 +305,30 @@
 (define (raise x)
   (apply-generic 'raise x))
 
+(define (add x y)
+  (apply-generic 'add x y))
+
+;; count how many raises are required until x is raised to the top-level type of
+;; the tower
+(define (get-rank x)
+  (let ((y (raise x)))
+    (if (eq? (type-tag x) (type-tag y))
+        0
+        (- (get-rank y) 1))))
+
 (install-scheme-number-package)
 (install-rational-package)
 (install-polar-package)
 (install-rectangular-package)
 (install-complex-package)
+
+;;;; Examples
+;; same type
+(add 1 1)
+(add (make-rational 1 1) (make-rational 1 1))
+(add (make-complex-from-real-imag 1 1) (make-complex-from-real-imag 1 1))
+
+;; cross type operations
+(add 1 (make-rational 1 1))
+(add 1 (make-complex-from-real-imag 1 1))
+(add (make-rational 1 2) (make-complex-from-real-imag 1 1))
