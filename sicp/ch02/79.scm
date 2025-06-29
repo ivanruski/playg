@@ -189,6 +189,13 @@
   (define (div-complex z1 z2)
     (make-from-mag-ang (/ (magnitude z1) (magnitude z2))
                        (- (angle z1) (angle z2))))
+
+  (define (complex-equ? x y)
+    (if (eq? (type-tag x) (type-tag y))
+        (equ? x y)
+        (error "Cannot check equality for complex numbers of different representations -- COMPLEX-EQU?"
+               (list x y))))
+
   ;; interface to rest of the system
   (define (tag z) (attach-tag 'complex z))
   (put 'add '(complex complex)
@@ -209,7 +216,7 @@
   (put 'magnitude '(complex) magnitude)
   (put 'angle '(complex) angle)
 
-  (put 'equ? '(complex complex) equ?)
+  (put 'equ? '(complex complex) complex-equ?)
 
   'done)
 
