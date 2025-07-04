@@ -12,7 +12,7 @@
 ;; result back to the type we started with, we end up with something equal to
 ;; what we started with. Show how to implement this idea in detail, by writing a
 ;; drop procedure that drops an object as far as possible. You will need to
-;; design the various projection operations53 and install project as a generic
+;; design the various projection operations and install project as a generic
 ;; operation in the system. You will also need to make use of a generic equality
 ;; predicate, such as described in exercise 2.79. Finally, use drop to rewrite
 ;; apply-generic from exercise 2.84 so that it ``simplifies'' its answers.
@@ -33,6 +33,9 @@
         ((pair? datum) (cdr datum))
         (else
          (error "Bad tagged datum -- CONTENTS" datum))))
+
+(define (datum? datum)
+  (or (number? datum) (pair? datum)))
 
 (define table '())
 
@@ -79,6 +82,9 @@
   (put 'raise '(scheme-number)
        (lambda (x) (make-rational x 1)))
 
+  (put 'project '(scheme-number)
+       (lambda (x) x))
+
   'done)
 
 (define (make-scheme-number n)
@@ -89,8 +95,11 @@
   (define (numer x) (car x))
   (define (denom x) (cdr x))
   (define (make-rat n d)
-    (let ((g (gcd n d)))
-      (cons (/ n g) (/ d g))))
+    (cond ((not (integer? n)) (error "Numerator must be an integer -- MAKE-RATIONAL" n))
+          ((not (integer? d)) (error "Denumerator must be an integer -- MAKE-RATIONAL" d))
+          (else
+           (let ((g (gcd n d)))
+             (cons (/ n g) (/ d g))))))
   (define (add-rat x y)
     (make-rat (+ (* (numer x) (denom y))
                  (* (numer y) (denom x)))
@@ -110,6 +119,8 @@
     (and (= (numer x) (numer y))
          (= (denom x) (denom y))))
 
+  ;; Raising to rectangular representation causes issues when we try to drop a
+  ;; polar representation
   (define (raise x)
     (make-complex-from-real-imag (/ (* 1.0 (numer x)) ;; force decimal
                                     (denom x)) 0))
@@ -134,6 +145,9 @@
 
   (put 'raise '(rational)
        (lambda (x) (raise x)))
+
+  (put 'project '(rational)
+       (lambda (x) (make-scheme-number (round (/ (numer x) (denom x))))))
 
   'done)
 
@@ -178,6 +192,10 @@
        (lambda (x) (make-complex-from-mag-ang (magnitude x)
                                               (angle x))))
 
+  (put 'project '(polar)
+       (lambda (x) (make-rational (round (real-part x))
+                                  1)))
+
   'done)
 
 (define (install-rectangular-package)
@@ -218,6 +236,10 @@
        (lambda (x) (make-complex-from-real-imag (real-part x)
                                                 (imag-part x))))
 
+  (put 'project '(rectangular)
+       (lambda (x) (make-rational (round (real-part x))
+                                  1)))
+
   'done)
 
 (define (install-complex-package)
@@ -239,6 +261,13 @@
   (define (div-complex z1 z2)
     (make-from-mag-ang (/ (magnitude z1) (magnitude z2))
                        (- (angle z1) (angle z2))))
+
+  (define (complex-equ? x y)
+    (if (eq? (type-tag x) (type-tag y))
+        (equ? x y)
+        (error "Cannot check equality for complex numbers of different representations -- COMPLEX-EQU?"
+               (list x y))))
+
   ;; interface to rest of the system
   (define (tag z) (attach-tag 'complex z))
   (put 'add '(complex complex)
@@ -259,9 +288,11 @@
   (put 'magnitude '(complex) magnitude)
   (put 'angle '(complex) angle)
 
-  (put 'equ? '(complex complex) equ?)
+  (put 'equ? '(complex complex) complex-equ?)
 
   (put '=zero? '(complex) =zero?)
+
+  (put 'project '(complex) project)
 
   ;; raise of complex, will call, raise of polar/rectangular which in turn will
   ;; call make-complex-from-x-x, the whole thing results in a couple of useless
@@ -296,11 +327,19 @@
              (raise-n-times x (abs (- highest (get-rank x)))))
            args)))
 
-  (let ((type-tags (map type-tag args)))
-    (let ((proc (get op type-tags)))
-      (if proc
-          (apply proc (map contents args))
-          (apply apply-generic op (raise-args-to-highest-ranking-type args))))))
+  (define (apply-op)
+    (let ((type-tags (map type-tag args)))
+      (let ((proc (get op type-tags)))
+        (if proc
+            (apply proc (map contents args))
+            (apply apply-generic op (raise-args-to-highest-ranking-type args))))))
+
+  (let ((result (apply-op)))
+    (cond ((not (datum? result)) result)
+          ((eq? op 'raise) result)
+          ((eq? op 'project) result)
+          (else
+           (drop result)))))
 
 
 (define (real-part z) (apply-generic 'real-part z))
@@ -328,8 +367,52 @@
         0
         (- (get-rank y) 1))))
 
+(define (project x)
+  (apply-generic 'project x))
+
+(define (drop x)
+  (let ((dropped (project x)))
+    (if (equ? x (raise dropped))
+        dropped
+        x)))
+
 (install-scheme-number-package)
 (install-rational-package)
 (install-polar-package)
 (install-rectangular-package)
 (install-complex-package)
+
+;; project examples
+(project 3)
+(project (make-rational 3 1))
+(project (make-rational 3 2))
+(project (make-complex-from-real-imag 2 0))
+(project (make-complex-from-real-imag 2 2))
+(project (make-complex-from-mag-ang 3 3))
+(project (make-complex-from-mag-ang 3 0))
+
+;; drop examples
+(drop 3)
+(drop (make-rational 3 1))
+(drop (make-rational 3 2))
+(drop (make-complex-from-real-imag 3 0))
+(drop (make-complex-from-real-imag 3 1))
+
+;; Raising rational to rectangular representation causes issues when we try to
+;; drop a polar representation
+(drop (make-complex-from-mag-ang 3 1))
+
+;; examples of drop integrated into apply-generic
+(add 1 (make-rational 9 3))
+(add 1 (make-rational 9 4))
+
+(add (make-rational 3 2) (make-rational 3 2))
+(add (make-rational 3 2) (make-rational 3 3))
+(add (make-rational 3 2)
+     (add (make-rational 3 2) (make-rational 3 3)))
+
+(add (make-complex-from-real-imag 2 2) (make-complex-from-real-imag 2 2))
+(add (make-complex-from-real-imag 2 2) (make-complex-from-real-imag 2 -2))
+
+(add 1 (make-complex-from-real-imag 5 3))
+(add 1 (make-complex-from-real-imag 5 0))
