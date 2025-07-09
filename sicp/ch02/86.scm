@@ -80,6 +80,19 @@
   (put 'make 'scheme-number
        (lambda (x) (tag x)))
 
+  (put 'sin-num '(scheme-number)
+       (lambda (x) (make-real (sin x))))
+  (put 'cos-num '(scheme-number)
+       (lambda (x) (make-real (cos x))))
+  (put 'atan-num '(scheme-number)
+       (lambda (x) (make-real (atan x))))
+  (put 'atan-num '(scheme-number scheme-number)
+       (lambda (x y) (make-real (atan x y))))
+  (put 'sqrt-num '(scheme-number)
+       (lambda (x) (make-real (sqrt x))))
+  (put 'square-num '(scheme-number)
+       (lambda (x) (tag (square x))))
+
   (put 'equ? '(scheme-number scheme-number)
        (lambda (x y) (= x y)))
 
@@ -129,11 +142,9 @@
     (and (= (numer x) (numer y))
          (= (denom x) (denom y))))
 
-  ;; Raising to rectangular representation causes issues when we try to drop a
-  ;; polar representation
   (define (raise x)
-    (make-complex-from-real-imag (/ (* 1.0 (numer x)) ;; force decimal
-                                    (denom x)) 0))
+    (make-real (/ (* (numer x) 1.)
+                  (denom x))))
 
   ;; interface to rest of the system
   (define (tag x) (attach-tag 'rational x))
@@ -159,10 +170,80 @@
   (put 'project '(rational)
        (lambda (x) (make-scheme-number (round (/ (numer x) (denom x))))))
 
+  (put 'sin-num '(rational)
+       (lambda (x) (sin-num (raise x))))
+  (put 'cos-num '(rational)
+       (lambda (x) (cos-num (raise x))))
+  (put 'atan-num '(rational)
+       (lambda (x) (atan-num (raise x))))
+  (put 'atan-num '(rational rational)
+       (lambda (x y) (atan-num (raise x) (raise y))))
+  (put 'sqrt-num '(rational)
+       (lambda (x) (sqrt-num (raise x))))
+  (put 'square-num '(rational)
+       (lambda (x) (tag (make-rat (square-num (numer x))
+                                  (square-num (denom x))))))
+
   'done)
 
 (define (make-rational n d)
   ((get 'make 'rational) n d))
+
+;; I wanted to do the exercise without defining a real-number package but
+;; sin/cos made me to it, because almost alaways the result of
+;; (sin/cos scheme-number) is a real number.
+(define (install-real-number-package)
+  (define (tag x)
+    (attach-tag 'real-number x))
+
+  (put 'add '(real-number real-number)
+       (lambda (x y) (tag (+ x y))))
+  (put 'sub '(real-number real-number)
+       (lambda (x y) (tag (- x y))))
+  (put 'mul '(real-number real-number)
+       (lambda (x y) (tag (* x y))))
+  (put 'div '(real-number real-number)
+       (lambda (x y) (tag (/ x y))))
+  (put 'make 'real-number
+       (lambda (x)
+         (if (real? x)
+             (tag x)
+             (error "not a real number -- MAKE-REAL" x))))
+
+  (put 'sin-num '(real-number)
+       (lambda (x) (tag (sin x))))
+  (put 'cos-num '(real-number)
+       (lambda (x) (tag (cos x))))
+  (put 'atan-num '(real-number)
+       (lambda (x) (tag (atan x))))
+  (put 'atan-num '(real-number real-number)
+       (lambda (x y) (tag (atan x y))))
+  (put 'sqrt-num '(real-number)
+       (lambda (x) (tag (sqrt x))))
+  (put 'square-num '(real-number)
+       (lambda (x) (tag (square x))))
+
+  (put 'equ? '(real-number real-number)
+       (lambda (x y) (= x y)))
+
+  (put '=zero? '(real-number)
+       (lambda (x) (equ? 0 x)))
+
+  (put 'exp '(real-number real-number)
+       (lambda (x y) (tag (expt x y))))
+
+  ;; Raising to rectangular representation causes issues when we try to drop a
+  ;; polar representation
+  (put 'raise '(real-number)
+       (lambda (x) (make-complex-from-real-imag (tag x) 0)))
+
+  (put 'project '(real-number)
+       (lambda (x) (make-rational (round x) 1)))
+
+  'done)
+
+(define (make-real x)
+  ((get 'make 'real-number) x))
 
 (define (install-polar-package)
   ;; internal procedures
@@ -170,16 +251,16 @@
   (define (angle z) (cdr z))
   (define (make-from-mag-ang r a) (cons r a))
   (define (real-part z)
-    (* (magnitude z) (cos (angle z))))
+    (mul (magnitude z) (cos-num (angle z))))
   (define (imag-part z)
-    (* (magnitude z) (sin (angle z))))
+    (mul (magnitude z) (sin-num (angle z))))
   (define (make-from-real-imag x y)
-    (cons (sqrt (+ (square x) (square y)))
-          (atan y x)))
+    (cons (sqrt-num (add (square-num x) (square-num y)))
+          (atan-num y x)))
 
-  (define (equ? x y)
-    (and (= (magnitude x) (magnitude y))
-         (= (angle x) (angle y))))
+  (define (equ-p? x y)
+    (and (equ? (magnitude x) (magnitude y))
+         (equ? (angle x) (angle y))))
 
   ;; interface to the rest of the system
   (define (tag x) (attach-tag 'polar x))
@@ -192,7 +273,7 @@
   (put 'make-from-mag-ang 'polar
        (lambda (r a) (tag (make-from-mag-ang r a))))
 
-  (put 'equ? '(polar polar) equ?)
+  (put 'equ? '(polar polar) equ-p?)
 
   (put '=zero? '(polar)
        (lambda (x)
@@ -203,8 +284,21 @@
                                               (angle x))))
 
   (put 'project '(polar)
-       (lambda (x) (make-rational (round (real-part x))
-                                  1)))
+       (lambda (x)
+         (let ((rp (real-part x)))
+           (if (eq? (type-tag rp) 'real-number)
+               rp
+               (error "real-part of polar is not real-number -- PROJECT-POLAR" rp)))))
+
+  (put 'project '(polar)
+       (lambda (x)
+         (let ((real-p (real-part x))
+               (typ (type-tag (real-part x))))
+           (cond ((eq? typ 'scheme-number) (make-real real-p))
+                 ((eq? typ 'rational) (raise real-p))
+                 ((eq? typ 'real-number) real-p)
+                 (else ;; should be a complex
+                  (project real-p))))))
 
   'done)
 
@@ -214,16 +308,16 @@
   (define (imag-part z) (cdr z))
   (define (make-from-real-imag x y) (cons x y))
   (define (magnitude z)
-    (sqrt (+ (square (real-part z))
-             (square (imag-part z)))))
+    (sqrt-num (add (square-num (real-part z))
+                   (square-num (imag-part z)))))
   (define (angle z)
-    (atan (imag-part z) (real-part z)))
+    (atan-num (imag-part z) (real-part z)))
   (define (make-from-mag-ang r a)
-    (cons (* r (cos a)) (* r (sin a))))
+    (cons (mul r (cos-num a)) (mul r (sin-num a))))
 
-  (define (equ? x y)
-    (and (= (real-part x) (real-part y))
-         (= (imag-part x) (imag-part y))))
+  (define (equ-r? x y)
+    (and (equ? (real-part x) (real-part y))
+         (equ? (imag-part x) (imag-part y))))
 
   ;; interface to the rest of the system
   (define (tag x) (attach-tag 'rectangular x))
@@ -236,7 +330,7 @@
   (put 'make-from-mag-ang 'rectangular
        (lambda (r a) (tag (make-from-mag-ang r a))))
 
-  (put 'equ? '(rectangular rectangular) equ?)
+  (put 'equ? '(rectangular rectangular) equ-r?)
 
   (put '=zero? '(rectangular)
        (lambda (x)
@@ -247,8 +341,14 @@
                                                 (imag-part x))))
 
   (put 'project '(rectangular)
-       (lambda (x) (make-rational (round (real-part x))
-                                  1)))
+       (lambda (x)
+         (let ((real-p (real-part x))
+               (typ (type-tag (real-part x))))
+           (cond ((eq? typ 'scheme-number) (make-real real-p))
+                 ((eq? typ 'rational) (raise real-p))
+                 ((eq? typ 'real-number) real-p)
+                 (else ;; should be a complex
+                  (project real-p))))))
 
   'done)
 
@@ -258,25 +358,26 @@
     ((get 'make-from-real-imag 'rectangular) x y))
   (define (make-from-mag-ang r a)
     ((get 'make-from-mag-ang 'polar) r a))
-  ;; internal procedures
+
+  ;; adding/multiplying/subtracting/dividing in this way means that we can
+  ;; multiply to rectangular representation and get polar representation as a
+  ;; result and vice-versa ... I am not going to address this
   (define (add-complex z1 z2)
-    (make-from-real-imag (+ (real-part z1) (real-part z2))
-                         (+ (imag-part z1) (imag-part z2))))
+    (make-from-real-imag (add (real-part z1) (real-part z2))
+                         (add (imag-part z1) (imag-part z2))))
   (define (sub-complex z1 z2)
-    (make-from-real-imag (- (real-part z1) (real-part z2))
-                         (- (imag-part z1) (imag-part z2))))
+    (make-from-real-imag (sub (real-part z1) (real-part z2))
+                         (sub (imag-part z1) (imag-part z2))))
   (define (mul-complex z1 z2)
-    (make-from-mag-ang (* (magnitude z1) (magnitude z2))
-                       (+ (angle z1) (angle z2))))
+    (make-from-mag-ang (mul (magnitude z1) (magnitude z2))
+                       (add (angle z1) (angle z2))))
   (define (div-complex z1 z2)
-    (make-from-mag-ang (/ (magnitude z1) (magnitude z2))
-                       (- (angle z1) (angle z2))))
+    (make-from-mag-ang (div (magnitude z1) (magnitude z2))
+                       (sub (angle z1) (angle z2))))
 
   (define (complex-equ? x y)
-    (if (eq? (type-tag x) (type-tag y))
-        (equ? x y)
-        (error "Cannot check equality for complex numbers of different representations -- COMPLEX-EQU?"
-               (list x y))))
+    (and (eq? (type-tag x) (type-tag y))
+         (equ? x y)))
 
   ;; interface to rest of the system
   (define (tag z) (attach-tag 'complex z))
@@ -302,7 +403,7 @@
 
   (put '=zero? '(complex) =zero?)
 
-  (put 'project '(complex) project)
+  (put 'project '(complex) project)  
 
   ;; raise of complex, will call, raise of polar/rectangular which in turn will
   ;; call make-complex-from-x-x, the whole thing results in a couple of useless
@@ -337,6 +438,7 @@
              (raise-n-times x (abs (- highest (get-rank x)))))
            args)))
 
+  ;; TODO: if proc does not exisit, it will loop forever
   (define (apply-op)
     (let ((type-tags (map type-tag args)))
       (let ((proc (get op type-tags)))
@@ -372,6 +474,30 @@
 (define (sub x y)
   (apply-generic 'sub x y))
 
+(define (mul x y)
+  (apply-generic 'mul x y))
+
+(define (div x y)
+  (apply-generic 'div x y))
+
+(define (sin-num x)
+  (apply-generic 'sin-num x))
+
+(define (cos-num x)
+  (apply-generic 'cos-num x))
+
+(define (atan-num x . y)
+  (cond ((= (length y) 0) (apply-generic 'atan-num x))
+        ((= (length y) 1) (apply-generic 'atan-num x (car y)))
+        (else
+         (error "atan-num requires between 1 and 2 arguments"))))
+
+(define (sqrt-num x)
+  (apply-generic 'sqrt-num x))
+
+(define (square-num x)
+  (apply-generic 'square-num x))
+
 ;; count how many raises are required until x is raised to the top-level type of
 ;; the tower
 (define (get-rank x)
@@ -391,6 +517,36 @@
 
 (install-scheme-number-package)
 (install-rational-package)
+(install-real-number-package)
 (install-polar-package)
 (install-rectangular-package)
 (install-complex-package)
+
+;;;; tests
+;; polar
+(define p (make-complex-from-mag-ang (make-rational 8 3) (make-rational 5 8)))
+(real-part p)
+(imag-part p)
+(equ? ((get 'make-from-real-imag 'polar) 3 5) ((get 'make-from-real-imag 'polar) 3 (make-real 5.1)))
+(project p)
+
+;; rectangular
+(define r (make-complex-from-real-imag (make-rational 8 3) (make-rational 5 8)))
+(magnitude r)
+(angle r)
+(equ? ((get 'make-from-mag-ang 'rectangular) (make-real 3) (make-rational 5 2)) ((get 'make-from-mag-ang 'rectangular) (make-real 3) (make-rational 5 2)))
+(equ? ((get 'make-from-mag-ang 'rectangular) (make-real 3.01) (make-rational 5 2)) ((get 'make-from-mag-ang 'rectangular) (make-real 3) (make-rational 5 2)))
+(project r)
+
+;; complex package
+(add r r)
+(add p p)
+
+(sub (add p p) p)
+(sub (add r r) r)
+
+(mul r r)
+(mul p p)
+
+(div r r)
+(div p p)
