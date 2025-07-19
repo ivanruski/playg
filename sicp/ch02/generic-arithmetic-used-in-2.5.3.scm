@@ -82,6 +82,9 @@
   (put 'project '(scheme-number)
        (lambda (x) x))
 
+  (put 'negate '(scheme-number)
+       (lambda (x) (- x)))
+
   'done)
 
 (define (make-scheme-number n)
@@ -96,7 +99,12 @@
           ((not (integer? d)) (error "Denumerator must be an integer -- MAKE-RATIONAL" d))
           (else
            (let ((g (gcd n d)))
-             (cons (/ n g) (/ d g))))))
+             (let ((n (/ n g))
+                   (d (/ d g)))
+               (if (negative? (* n d))
+                   (cons (- (abs n)) (abs d))
+                   (cons (abs n) (abs d))))))))
+
   (define (add-rat x y)
     (make-rat (+ (* (numer x) (denom y))
                  (* (numer y) (denom x)))
@@ -119,6 +127,10 @@
   (define (raise x)
     (make-real (/ (* (numer x) 1.)
                   (denom x))))
+
+  (define (negate-rat x)
+    (make-rat (negate (numer x))
+              (denom x)))
 
   ;; interface to rest of the system
   (define (tag x) (attach-tag 'rational x))
@@ -157,6 +169,9 @@
   (put 'square-num '(rational)
        (lambda (x) (tag (make-rat (square-num (numer x))
                                   (square-num (denom x))))))
+
+  (put 'negate '(rational)
+       (lambda (x) (tag (negate-rat x))))
 
   'done)
 
@@ -210,6 +225,9 @@
 
   (put 'project '(real-number)
        (lambda (x) (make-rational (round x) 1)))
+
+  (put 'negate '(real-number)
+       (lambda (x) (tag (- x))))
 
   'done)
 
@@ -271,6 +289,9 @@
                  (else ;; should be a complex
                   (project real-p))))))
 
+  (put 'negate '(polar)
+       (lambda (x) (error "TODO(negate polar) -- not implemented")))
+
   'done)
 
 (define (install-rectangular-package)
@@ -320,6 +341,11 @@
                  ((eq? typ 'real-number) real-p)
                  (else ;; should be a complex
                   (project real-p))))))
+
+  (put 'negate '(rectangular)
+       (lambda (x)
+         (tag (make-from-real-imag (negate (real-part x))
+                                   (negate (imag-part x))))))
 
   'done)
 
@@ -380,6 +406,8 @@
   ;; call make-complex-from-x-x, the whole thing results in a couple of useless
   ;; calls. The other option is raise to be a noop.
   (put 'raise '(complex) raise)
+
+  (put 'negate '(complex) negate)
 
   'done)
 
@@ -488,6 +516,9 @@
     (if (equ? x (raise dropped))
         dropped
         x)))
+
+(define (negate x)
+  (apply-generic 'negate x))
 
 (install-scheme-number-package)
 (install-rational-package)
