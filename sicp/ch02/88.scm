@@ -107,6 +107,21 @@
                  (=zero-term-list? R)))))
     (=zero-term-list? (term-list p)))
 
+  (define (negate-poly p)
+    (define (negate-term-list L)
+      (if (empty-termlist? L)
+          (the-empty-termlist)
+          (let ((t (first-term L)))
+            (adjoin-term
+             (make-term (order t)
+                        (negate (coeff t)))
+             (negate-term-list (rest-terms L))))))
+    (make-poly (variable p)
+               (negate-term-list (term-list p))))
+
+  (define (sub-poly p1 p2)
+    (add-poly p1 (negate-poly p2)))
+
   ;; interface to rest of the system
   (define (tag p) (attach-tag 'polynomial p))
 
@@ -121,9 +136,48 @@
 
   (put '=zero? '(polynomial) =zero-poly?)
 
+  (put 'negate '(polynomial)
+       (lambda (p) (tag (negate-poly p))))
+
+  (put 'sub '(polynomial polynomial)
+       (lambda (p1 p2) (tag (sub-poly p1 p2))))
+
   'done)
 
 (install-polynomial-package)
 
 (define (make-polynomial var terms)
   ((get 'make 'polynomial) var terms))
+
+;; test polynomial negatation and subsctraction
+(negate (make-polynomial 'x '((100 1) (2 1) (0 1))))
+(negate (make-polynomial 'x '((100 -1) (2 -1) (0 -1))))
+(negate (make-polynomial 'x (list '(100 -1)
+                                  (list 10 (make-complex-from-real-imag 5 5))
+                                  (list 2 (make-rational 5 3))
+                                  (list 0 (make-real -3.5)))))
+
+(sub (make-polynomial 'x '((100 2) (2 2) (0 2)))
+     (make-polynomial 'x '((100 1) (2 1) (0 1))))
+
+;; adjoin-term drops 0-coeffs
+(sub (make-polynomial 'x '((100 1) (2 1) (0 1)))
+     (make-polynomial 'x '((100 1) (2 1) (0 1))))
+
+(sub (make-polynomial 'x '((100 1) (2 1) (0 1)))
+     (make-polynomial 'x '((100 2) (2 2) (0 2))))
+
+(sub (make-polynomial 'x (list '(100 -1)
+                               (list 10 (make-complex-from-real-imag 5 5))
+                               (list 2 (make-rational 5 3))
+                               (list 0 (make-real -3.5))))
+     (make-polynomial 'x '((100 2) (2 2) (0 2))))
+
+(sub (make-polynomial 'x (list '(100 -1)
+                               (list 10 (make-complex-from-real-imag 5 5))
+                               (list 2 (make-rational 5 3))
+                               (list 0 (make-real -3.5))))
+     (make-polynomial 'x (list '(100 -1)
+                               (list 10 (make-rational 3 5))
+                               (list 2 3)
+                               (list 0 (make-rational 8 3)))))
