@@ -445,12 +445,14 @@
             (apply proc (map contents args))
             (apply apply-generic op (raise-args-to-highest-ranking-type args))))))
 
-  (let ((result (apply-op)))
+  (let ((result (apply-op))
+        (raisable? (get 'raise (map type-tag args)))
+        (projectable? (get 'project (map type-tag args))))
     (cond ((not (datum? result)) result)
           ((eq? op 'raise) result)
           ((eq? op 'project) result)
-          (else
-           (drop result)))))
+          ((and raisable? projectable?) (drop result))
+          (else result))))
 
 
 (define (real-part z) (apply-generic 'real-part z))
