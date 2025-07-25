@@ -1,6 +1,8 @@
 ;; Exercise 2.89. Define procedures that implement the term-list representation
 ;; described above as appropriate for dense polynomials.
 
+(load "generic-arithmetic-used-in-2.5.3.scm")
+
 ;; Polynomial package copied from previous exercise, with refactored term-list
 ;; representation
 (define (install-polynomial-package)
@@ -16,11 +18,18 @@
 
   ;; representation of terms and term lists
   (define (adjoin-term term term-list)
-    (if (=zero? (coeff term))
-        term-list
-        (cons term term-list)))
+    (cond ((> (order term) (length term-list))
+           (adjoin-term term
+                        (adjoin-term (make-term (length term-list) 0)
+                                     term-list)))
+          ((= (order term) (length term-list))
+           (cons (coeff term) term-list))
+          (else
+           (error "term order is invalid -- ADJOIN-TERM" term term-list))))
+
   (define (the-empty-termlist) '())
-  (define (first-term term-list) (car term-list))
+  (define (first-term term-list) (make-term (- (length term-list) 1)
+                                            (car term-list)))
   (define (rest-terms term-list) (cdr term-list))
   (define (empty-termlist? term-list) (null? term-list))
   (define (make-term order coeff) (list order coeff))
@@ -127,3 +136,52 @@
 
 (define (make-polynomial var terms)
   ((get 'make 'polynomial) var terms))
+
+;;;; tests
+;; adjoin-term
+(adjoin-term (make-term 6 3) '(1 1 0 1)) ;; (3 0 0 1 1 0 1)
+(adjoin-term (make-term 4 5) '(1 0 1 1)) ;; (5 1 0 1 1)
+(adjoin-term (make-term 3 5) '(1 0 1 1)) ;; error
+(adjoin-term (make-term 1 1) '(1)) ;; (1 1)
+(adjoin-term (make-term 4 1) '()) ;; (1 0 0 0 0)
+
+;; add
+(add (make-polynomial 'x '(1 2 0 3 -2 -5))
+     (make-polynomial 'x '(1 2 0 3 -2 -5))) ;; (polynomial x 2 4 0 6 -4 -10)
+
+(add (make-polynomial 'x '(1 2 0 3 -2 -5))
+     (make-polynomial 'x '(3 2 5))) ;; (polynomial x 1 2 0 6 0 0)
+
+(add (make-polynomial 'x '(3 2 5))
+     (make-polynomial 'x '(1 2 0 3 -2 -5))) ;; (polynomial x 1 2 0 6 0 0)
+
+(add (make-polynomial 'x '(3 0 0))
+     (make-polynomial 'x '(7 0 1 2 0 -3 -2 -5))) ;; (polynomial x 7 0 1 2 0 0 -2 -5)
+
+(add (make-polynomial 'x '(0 0 0))
+     (make-polynomial 'x '(2 5))) ;; (polynomial x 0 2 5)
+
+;; sub
+(sub (make-polynomial 'x '(1 2 0 3 -2 -5))
+     (make-polynomial 'x '(1 2 0 3 -2 -5))) ;; (polynomial x 0 0 0 0 0 0)
+
+(sub (make-polynomial 'x '(1 2 0 3 -2 -5))
+     (make-polynomial 'x '(3 2 5))) ;; (polynomial x 1 2 0 0 -4 -10)
+
+(sub (make-polynomial 'x '(3 2 5))
+     (make-polynomial 'x '(1 2 0 3 -2 -5))) ;; (polynomial x -1 -2 0 0 4 10)
+
+(sub (make-polynomial 'x '(3 0 0))
+     (make-polynomial 'x '(7 0 1 2 0 -3 -2 -5))) ;; (polynomial x -7 0 -1 -2 0 6 2 5)
+
+;; mul
+(mul (make-polynomial 'x '(1 0 1))
+     (make-polynomial 'x '(1 0 1))) ;; (polynomial x 1 0 2 0 1)
+
+(mul (make-polynomial 'x '(1 2 0 3 -2 -5))
+     (make-polynomial 'x '(1 2 0 3 -2 -5))) ;; (polynomial x 1 4 4 6 8 -18 -11 -12 -26 20 25)
+
+;; zero
+(=zero? (make-polynomial 'x '(1 2 0 3 -2 -5)))
+(=zero? (make-polynomial 'x '(0 0 0 0)))
+(=zero? (make-polynomial 'x '()))
