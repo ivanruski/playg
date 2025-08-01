@@ -129,20 +129,52 @@
                  (=zero-term-list? R)))))
     (=zero-term-list? (term-list p)))
 
+  (define (negate-term-list L)
+    (if (empty-termlist? L)
+        (the-empty-termlist)
+        (let ((t (first-term L)))
+          (adjoin-term
+           (make-term (order t)
+                      (negate (coeff t)))
+           (negate-term-list (rest-terms L))))))
+
   (define (negate-poly p)
-    (define (negate-term-list L)
-      (if (empty-termlist? L)
-          (the-empty-termlist)
-          (let ((t (first-term L)))
-            (adjoin-term
-             (make-term (order t)
-                        (negate (coeff t)))
-             (negate-term-list (rest-terms L))))))
     (make-poly (variable p)
                (negate-term-list (term-list p))))
 
   (define (sub-poly p1 p2)
     (add-poly p1 (negate-poly p2)))
+
+  (define (div-poly p1 p2)
+    (if (same-variable? (variable p1) (variable p2))
+        (let ((result (div-terms (term-list p1)
+                                 (term-list p2))))
+          (list (make-poly (variable p1) (car result))
+                (make-poly (variable p1) (cadr result))))
+        (error "Polys not in same var -- DIV-POLY"
+               (list p1 p2))))
+
+  (define (div-terms L1 L2)
+    (define (sub-term-lists L1 L2)
+      (add-terms L1 (negate-term-list L2)))
+
+    (if (empty-termlist? L1)
+        (list (the-empty-termlist) (the-empty-termlist))
+        (let ((t1 (first-term L1))
+              (t2 (first-term L2)))
+          (if (> (order t2) (order t1))
+              (list (the-empty-termlist) L1)
+              (let ((new-c (div (coeff t1) (coeff t2)))
+                    (new-o (- (order t1) (order t2))))
+                (let ((rest-of-result
+                       ;; new-dividend = (new term * divisor) - dividend
+                       (div-terms (sub-term-lists L1
+                                                  (mul-term-by-all-terms (make-term new-o new-c)
+                                                                    L2))
+                                  L2)))
+                  (list (cons (make-term new-o new-c)
+                              (car rest-of-result))
+                        (cadr rest-of-result))))))))
 
   ;; interface to rest of the system
   (define (tag p) (attach-tag 'polynomial p))
@@ -164,6 +196,9 @@
   (put 'sub '(polynomial polynomial)
        (lambda (p1 p2) (tag (sub-poly p1 p2))))
 
+  (put 'div '(polynomial polynomial)
+       (lambda (p1 p2) (map tag (div-poly p1 p2))))
+
   'done)
 
 (install-polynomial-package)
@@ -171,4 +206,18 @@
 (define (make-polynomial var terms)
   ((get 'make 'polynomial) var terms))
 
-;; TODO: tests
+;; tests
+
+;;   x⁵ - 1
+;;   ────── = x³ + x, remainder x - 1
+;;   x² - 1
+(div (make-polynomial 'x '((5 1) (0 -1)))
+     (make-polynomial 'x '((2 1) (0 -1))))
+
+
+;;   x⁷ - x⁴ + x²
+;;   ------------ = x, remainder -2x⁴ + 2x²
+;;   x⁶ + x³ - x
+(div (make-polynomial 'x '((7 1) (4 -1) (2 1)))
+     (make-polynomial 'x '((6 1) (3 1) (1 -1))))
+
