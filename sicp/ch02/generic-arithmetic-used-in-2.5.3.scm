@@ -437,23 +437,30 @@
              (raise-n-times x (abs (- highest (get-rank x)))))
            args)))
 
-  ;; TODO: if proc does not exisit, it will loop forever
   (define (apply-op)
-    (let ((type-tags (map type-tag args)))
-      (let ((proc (get op type-tags)))
-        (if proc
-            (apply proc (map contents args))
-            (apply apply-generic op (raise-args-to-highest-ranking-type args))))))
+    (cond ((or (eq? op 'raise) (eq? op 'project))
+           (let ((proc (get op (map type-tag args))))
+             (if proc
+                 (apply proc (map contents args))
+                 (error "Generic operation not found -- APPLY-GENERIC" op args))))
+          (else
+           (let ((proc (get op (map type-tag args))))
+             (if proc
+                 (apply proc (map contents args))
+                 (let ((raised-args (raise-args-to-highest-ranking-type args)))
+                   (let ((proc (get op (map type-tag raised-args))))
+                     (if proc
+                         (apply proc (map contents raised-args))
+                         (error "Generic operation not found even after coercion -- APPLY-GENERIC" op raised-args)))))))))
 
-  (let ((result (apply-op))
-        (raisable? (get 'raise (map type-tag args)))
-        (projectable? (get 'project (map type-tag args))))
-    (cond ((not (datum? result)) result)
-          ((eq? op 'raise) result)
-          ((eq? op 'project) result)
-          ((and raisable? projectable?) (drop result))
-          (else result))))
-
+  (let ((result (apply-op)))
+    (if (not (datum? result))
+        result
+        (let ((raisable? (get 'raise (list (type-tag result))))
+              (projectable? (get 'project (list (type-tag result)))))
+          (cond ((or (eq? op 'raise) (eq? op 'project)) result)
+                ((and raisable? projectable?) (drop result))
+                (else result))))))
 
 (define (real-part z) (apply-generic 'real-part z))
 (define (imag-part z) (apply-generic 'imag-part z))
@@ -514,10 +521,13 @@
   (apply-generic 'project x))
 
 (define (drop x)
-  (let ((dropped (project x)))
-    (if (equ? x (raise dropped))
-        dropped
-        x)))
+  (let ((projected (project x)))
+    (let ((raised (raise projected)))
+      (cond ((and (equ? x raised)
+                  (eq? (type-tag x) (type-tag projected))) ;; we've reached the bottom of the type tower
+             projected)
+            ((equ? x raised) (drop projected)) ;; we've dropped one type, try one more
+            (else x)))))
 
 (define (negate x)
   (apply-generic 'negate x))
