@@ -80,7 +80,10 @@
        (lambda (x) (make-rational x 1)))
 
   (put 'project '(scheme-number)
-       (lambda (x) x))
+       (lambda (x)
+         (if (integer? x)
+             (inexact->exact x)
+             x)))
 
   (put 'negate '(scheme-number)
        (lambda (x) (- x)))
@@ -366,8 +369,8 @@
                        (sub (angle z1) (angle z2))))
 
   (define (complex-equ? x y)
-    (and (eq? (type-tag x) (type-tag y))
-         (equ? x y)))
+    (and (equ? (real-part x) (real-part y))
+         (equ? (imag-part x) (imag-part y))))
 
   ;; interface to rest of the system
   (define (tag z) (attach-tag 'complex z))
@@ -450,9 +453,10 @@
     (if (not (datum? result))
         result
         (let ((raisable? (get 'raise (list (type-tag result))))
-              (projectable? (get 'project (list (type-tag result)))))
+              (projectable? (get 'project (list (type-tag result))))
+              (equtable? (get 'equ? (list (type-tag result) (type-tag result)))))
           (cond ((or (eq? op 'raise) (eq? op 'project)) result)
-                ((and raisable? projectable?) (drop result))
+                ((and raisable? projectable? equtable?) (drop result))
                 (else result))))))
 
 (define (real-part z) (apply-generic 'real-part z))

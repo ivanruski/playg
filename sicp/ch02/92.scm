@@ -2,18 +2,6 @@
 ;; package so that addition and multiplication of polynomials works for
 ;; polynomials in different variables. (This is not easy!)
 
-;; This exercise is not easy, indeed! For example if I have the following 2
-;; polynomials: (3x⁵ + 2x³ + 3) + (3y⁵ + (x³ + 1)y³), I would have to expand the
-;; second(the polynomial in y) and then perform the addition.
-;;
-;; IMO, it is not enough to treat the second one simply as x⁰(3y⁵ + (x³ + 1)y³).
-;; If I do that the end result will be: 3x⁵ + 2x³ + x⁰(3 + 3y⁵ + (x³ + 1)y³) and
-;; if I expand first, the result will be: 3x⁵ + x³(2 + y³) + x⁰(3y⁵ + y³ + 3)
-;;
-;; To me the second one is more accurate, because in the first one I have a
-;; polynomial in x, which has a term which is polynomial in y, which in turn has
-;; a term that is polynomial in x.
-
 (load "generic-arithmetic-used-in-2.5.3.scm")
 
 ;; Polynomial package copied from previous exercise, with refactored term-list
@@ -67,6 +55,18 @@
                                 (add (coeff t1) (coeff t2)))
                      (add-terms (rest-terms L1)
                                 (rest-terms L2)))))))))
+
+  (define (add-poly-to-number p num)
+    (add-poly p
+              (make-poly (variable p)
+                         (adjoin-term (make-term 0 num)
+                                      (the-empty-termlist)))))
+
+  (define (mul-poly-to-number p num)
+    (mul-poly p
+              (make-poly (variable p)
+                         (adjoin-term (make-term 0 num)
+                                      (the-empty-termlist)))))
 
   (define (mul-poly p1 p2)
     (if (same-variable? (variable p1) (variable p2))
@@ -148,6 +148,20 @@
                               (car rest-of-result))
                         (cadr rest-of-result))))))))
 
+  (define (poly-equ? p1 p2)
+    (define (terms-equ? L1 L2)
+      (if (empty-termlist? L1)
+          (empty-termlist? L2)
+          (let ((t1 (first-term L1))
+                (t2 (first-term L2)))
+            (and (= (order t1) (order t2))
+                 (equ? (coeff t1) (coeff t2))
+                 (terms-equ? (rest-terms L1) (rest-terms L2))))))
+
+    (if (same-variable? (variable p1) (variable p2))
+        (terms-equ? (term-list p1) (term-list p2))
+        #f))
+
   ;; interface to rest of the system
   (define (tag p) (attach-tag 'polynomial p))
 
@@ -170,6 +184,19 @@
 
   (put 'div '(polynomial polynomial)
        (lambda (p1 p2) (map tag (div-poly p1 p2))))
+
+  (put 'equ? '(polynomial polynomial)
+       (lambda (p1 p2) (poly-equ? p1 p2)))
+
+  (for-each (lambda (type)
+
+              (put 'add (list 'polynomial type) (lambda (p num) (tag (add-poly-to-number p (attach-tag type num)))))
+              (put 'add (list type 'polynomial) (lambda (num p) (tag (add-poly-to-number p (attach-tag type num)))))
+
+              (put 'mul (list 'polynomial type) (lambda (p num) (tag (mul-poly-to-number p (attach-tag type num)))))
+              (put 'mul (list type 'polynomial) (lambda (num p) (tag (mul-poly-to-number p (attach-tag type num))))))
+
+            '(scheme-number rational real-number polar rectangular complex))
 
   'done)
 
