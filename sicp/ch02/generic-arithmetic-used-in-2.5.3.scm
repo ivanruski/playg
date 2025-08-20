@@ -266,18 +266,11 @@
 
   (put '=zero? '(polar)
        (lambda (x)
-         (equ? x (make-from-mag-ang 0 0))))
+         (equ-p? x (make-from-mag-ang 0 0))))
 
   (put 'raise '(polar)
        (lambda (x) (make-complex-from-mag-ang (magnitude x)
                                               (angle x))))
-
-  (put 'project '(polar)
-       (lambda (x)
-         (let ((rp (real-part x)))
-           (if (eq? (type-tag rp) 'real-number)
-               rp
-               (error "real-part of polar is not real-number -- PROJECT-POLAR" rp)))))
 
   (put 'project '(polar)
        (lambda (x)
