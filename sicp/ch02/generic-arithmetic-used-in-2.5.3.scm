@@ -520,7 +520,7 @@
 (define (drop x)
   (let ((projected (project x)))
     (let ((raised (raise projected)))
-      (cond ((and (equ? x raised)
+      (cond ((and (equ? x projected)
                   (eq? (type-tag x) (type-tag projected))) ;; we've reached the bottom of the type tower
              projected)
             ((equ? x raised) (drop projected)) ;; we've dropped one type, try one more
@@ -530,7 +530,8 @@
   (apply-generic 'negate x))
 
 (install-scheme-number-package)
-(install-rational-package)
+;; For exercises 2.93+, it is installed in the exercise file
+;;(install-rational-package)
 (install-real-number-package)
 (install-polar-package)
 (install-rectangular-package)
