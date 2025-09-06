@@ -248,6 +248,24 @@
         (terms-equ? (term-list p1) (term-list p2))
         #f))
 
+  (define (remainder-terms L1 L2)
+    (let ((result (div-terms L1 L2)))
+      (let ((remainder (cadr result)))
+        remainder)))
+
+  (define (gcd-terms a b)
+    (if (empty-termlist? b)
+        a
+        (gcd-terms b (remainder-terms a b))))
+
+  (define (gcd-poly p1 p2)
+    (if (same-variable? (variable p1) (variable p2))
+        (make-poly (variable p1)
+                   (gcd-terms (term-list p1)
+                              (term-list p2)))
+        (error "Polys not in same var -- GCD-POLY"
+               (list p1 p2))))
+
   ;; interface to rest of the system
   (define (tag p) (attach-tag 'polynomial p))
 
@@ -274,6 +292,9 @@
   (put 'equ? '(polynomial polynomial)
        (lambda (p1 p2) (poly-equ? p1 p2)))
 
+  (put 'greatest-common-divisor '(polynomial polynomial)
+       (lambda (p1 p2) (tag (gcd-poly p1 p2))))
+
   (for-each (lambda (type)
 
               (put 'add (list 'polynomial type) (lambda (p num) (tag (add-poly-to-number p (attach-tag type num)))))
@@ -293,3 +314,14 @@
 
 (define (polynomial? x)
   (eq? (type-tag x) 'polynomial))
+
+(define (greatest-common-divisor x y)
+  (apply-generic 'greatest-common-divisor x y))
+
+;; test
+(define p1 (make-polynomial 'x '((4 1) (3 -1) (2 -2) (1 2))))
+(define p2 (make-polynomial 'x '((3 1) (1 -1))))
+
+(greatest-common-divisor p1 p2)
+(div p1 (greatest-common-divisor p1 p2))
+(div p2 (greatest-common-divisor p1 p2))
