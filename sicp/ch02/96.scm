@@ -272,10 +272,23 @@
       (let ((remainder (cadr result)))
         remainder)))
 
+  (define (pseudoremainder-terms L1 L2)
+    (define (integerizing-factor L1 L2)
+      (let ((o1 (order (first-term L1)))
+            (o2 (order (first-term L2)))
+            (c (coeff (first-term L2))))
+        (expt c (+ 1 (- o1 o2)))))
+
+    (let ((factored-l1 (mul-term-by-all-terms (make-term 0 (integerizing-factor L1 L2))
+                                              L1)))
+      (let ((result (div-terms factored-l1 L2)))
+        (let ((remainder (cadr result)))
+          remainder))))
+
   (define (gcd-terms a b)
     (if (empty-termlist? b)
         a
-        (gcd-terms b (remainder-terms a b))))
+        (gcd-terms b (pseudoremainder-terms a b))))
 
   (define (gcd-poly p1 p2)
     (if (same-variable? (variable p1) (variable p2))
@@ -336,3 +349,14 @@
 
 (define (greatest-common-divisor x y)
   (apply-generic 'greatest-common-divisor x y))
+
+;; a. verify 2.95
+
+(define p1 (make-polynomial 'x '((2 1) (1 -2) (0 1))))
+(define p2 (make-polynomial 'x '((2 11) (0 7))))
+(define p3 (make-polynomial 'x '((1 13) (0 5))))
+
+(define q1 (mul p1 p2))
+(define q2 (mul p1 p3))
+
+(greatest-common-divisor q1 q2)
