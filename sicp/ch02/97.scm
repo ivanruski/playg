@@ -68,7 +68,9 @@
   (define (numer x) (car x))
   (define (denom x) (cdr x))
   (define (make-rat n d)
-    (cons n d))
+    (let ((reduced (reduce n d)))
+      (cons (car reduced)
+            (cadr reduced))))
 
   (define (add-rat x y)
     (make-rat (add (mul (numer x) (denom y))
@@ -337,6 +339,45 @@
         (error "Polys not in same var -- GCD-POLY"
                (list p1 p2))))
 
+  (define (reduce-poly p1 p2)
+    (if (same-variable? (variable p1) (variable p2))
+        (let ((reduced-term-lists (reduce-terms (term-list p1) (term-list p2))))
+          (list (make-poly (variable p1) (car reduced-term-lists))
+                (make-poly (variable p1) (cadr reduced-term-lists))))
+        (error "Polys not in same var -- GCD-POLY"
+               (list p1 p2))))
+
+  (define (reduce-terms L1 L2)
+    (define (integerizing-factor gcd-termlist)
+      (let ((o1 (max (order (first-term L1))
+                     (order (first-term L2))))
+            (o2 (order (first-term gcd-termlist)))
+            (c (coeff (first-term gcd-termlist))))
+        (expt c (+ 1 (- o1 o2)))))
+
+    (let ((gcd-termlist (gcd-terms L1 L2)))
+      (let ((ifact (integerizing-factor gcd-termlist)))
+        (let ((factored-L1 (map (lambda (term)
+                                  (make-term (order term)
+                                             (* ifact (coeff term))))
+                                L1))
+              (factored-L2 (map (lambda (term)
+                                  (make-term (order term)
+                                             (* ifact (coeff term))))
+                                L2)))
+          (let ((LL1 (car (div-terms factored-L1 gcd-termlist)))
+                (LL2 (car (div-terms factored-L2 gcd-termlist))))
+            (let ((gcd-l (accumulate gcd 0 (append (map coeff LL1)
+                                                   (map coeff LL2)))))
+              (list (map (lambda (term)
+                           (make-term (order term)
+                                      (/ (coeff term) gcd-l)))
+                         LL1)
+                    (map (lambda (term)
+                           (make-term (order term)
+                                      (/ (coeff term) gcd-l)))
+                         LL2))))))))
+
   ;; interface to rest of the system
   (define (tag p) (attach-tag 'polynomial p))
 
@@ -376,6 +417,9 @@
 
             '(scheme-number rational real-number polar rectangular complex))
 
+  (put 'reduce '(polynomial polynomial)
+       (lambda (p1 p2) (map tag (reduce-poly p1 p2))))
+
   'done)
 
 (install-polynomial-package)
@@ -388,3 +432,20 @@
 
 (define (greatest-common-divisor x y)
   (apply-generic 'greatest-common-divisor x y))
+
+(define (reduce x y)
+  (apply-generic 'reduce x y))
+
+;; test
+
+(define p1 (make-polynomial 'x '((1 1)(0 1))))
+(define p2 (make-polynomial 'x '((3 1)(0 -1))))
+(define p3 (make-polynomial 'x '((1 1))))
+(define p4 (make-polynomial 'x '((2 1)(0 -1))))
+
+(define rf1 (make-rational p1 p2))
+(define rf2 (make-rational p3 p4))
+
+(add rf1 rf2)
+;; before: (rational (polynomial x (4 1) (3 1) (2 1) (1 -2) (0 -1)) polynomial x (5 1) (3 -1) (2 -1) (0 1))
+;; after:  (rational (polynomial x (3 -1) (2 -2) (1 -3) (0 -1)) polynomial x (4 -1) (3 -1) (1 1) (0 1))

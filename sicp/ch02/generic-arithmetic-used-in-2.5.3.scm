@@ -18,6 +18,8 @@
         (else
          (error "Bad tagged datum -- CONTENTS" datum))))
 
+;; TODO: Have a list with all of the registered types in our system and check
+;; that the datum's type is in that list
 (define (datum? datum)
   (or (number? datum) (pair? datum)))
 
@@ -41,6 +43,10 @@
         item)))
 
 (define (install-scheme-number-package)
+  (define (reduce-integers n d)
+   (let ((g (gcd n d)))
+     (list (/ n g) (/ d g))))
+
   (define (tag x)
     (attach-tag 'scheme-number x))
   (put 'add '(scheme-number scheme-number)
@@ -87,6 +93,9 @@
 
   (put 'negate '(scheme-number)
        (lambda (x) (- x)))
+
+  (put 'reduce '(scheme-number scheme-number)
+       (lambda (x y) (map tag (reduce-integers x y))))
 
   'done)
 
@@ -449,6 +458,7 @@
                          (apply proc (map contents raised-args))
                          (error "Generic operation not found even after coercion -- APPLY-GENERIC" op raised-args)))))))))
 
+  ;;(display "apply-generic") (display " op: ") (display op) (display " -- args: ") (display args) (newline)
   (let ((result (apply-op)))
     (if (not (datum? result))
         result
