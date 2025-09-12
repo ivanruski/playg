@@ -9,26 +9,12 @@
 ;; P1. Modify gcd-terms so that it removes common factors from the coefficients
 ;; of the answer by dividing all the coefficients by their (integer) greatest
 ;; common divisor.
-;;
-;; Thus, here is how to reduce a rational function to lowest terms:
-;;
-;; - Compute the GCD of the numerator and denominator, using the version of
-;;   gcd-terms from exercise 2.96.
-;;
-;; - When you obtain the GCD, multiply both numerator and denominator by the
-;;   same integerizing factor before dividing through by the GCD, so that division
-;;   by the GCD will not introduce any noninteger coefficients. As the factor you
-;;   can use the leading coefficient of the GCD raised to the power 1 + O1 - O2,
-;;   where O2 is the order of the GCD and O1 is the maximum of the orders of the
-;;   numerator and denominator. This will ensure that dividing the numerator and
-;;   denominator by the GCD will not introduce any fractions.
-;;
-;; - The result of this operation will be a numerator and denominator with
-;;   integer coefficients. The coefficients will normally be very large because of
-;;   all of the integerizing factors, so the last step is to remove the redundant
-;;   factors by computing the (integer) greatest common divisor of all the
-;;   coefficients of the numerator and the denominator and dividing through by
-;;   this factor.
+
+(define (accumulate op nil-value seq)
+  (if (null? seq)
+      nil-value
+      (op (car seq)
+          (accumulate op nil-value (cdr seq)))))
 
 ;; copied from 2.94
 (load "generic-arithmetic-used-in-2.5.3.scm")
@@ -286,8 +272,17 @@
           remainder))))
 
   (define (gcd-terms a b)
+    (define (remove-common-factors L)
+      (if (empty-termlist? L)
+          L
+          (let ((gcd-l (accumulate gcd 0 (map coeff L))))
+            (map (lambda (term)
+                   (make-term (order term)
+                              (/ (coeff term) gcd-l)))
+                 L))))
+
     (if (empty-termlist? b)
-        a
+        (remove-common-factors a)
         (gcd-terms b (pseudoremainder-terms a b))))
 
   (define (gcd-poly p1 p2)
@@ -350,7 +345,7 @@
 (define (greatest-common-divisor x y)
   (apply-generic 'greatest-common-divisor x y))
 
-;; a. verify 2.95
+;; test
 
 (define p1 (make-polynomial 'x '((2 1) (1 -2) (0 1))))
 (define p2 (make-polynomial 'x '((2 11) (0 7))))
