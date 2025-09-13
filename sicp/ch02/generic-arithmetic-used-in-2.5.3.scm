@@ -541,7 +541,7 @@
 
 (install-scheme-number-package)
 ;; For exercises 2.93+, it is installed in the exercise file
-;;(install-rational-package)
+(install-rational-package)
 (install-real-number-package)
 (install-polar-package)
 (install-rectangular-package)

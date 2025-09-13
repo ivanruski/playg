@@ -221,3 +221,8 @@
 (div (make-polynomial 'x '((7 1) (4 -1) (2 1)))
      (make-polynomial 'x '((6 1) (3 1) (1 -1))))
 
+;; This will breake because (mul p1 (sub p1 p1)) will return polynomial with
+;; empty termlist and I haven't defined a proper behavior for dividing
+;; polynomials without termlists.
+(div p1 (mul p1 (sub p1 p1)))
+
