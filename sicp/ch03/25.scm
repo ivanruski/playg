@@ -25,19 +25,17 @@
               #f)))))
 
 (define (insert! table keys value)
-  ;; Traverse the root table until we reach the one in which the last key will
-  ;; inserted
-  (define (get-last-table table keys)
-    (if (= (length keys) 1)
+  (define (create-nested-tables table keys)
+    (if (null? keys)
         table
         (let ((subtable (assoc (cdr table) (car keys))))
           (if subtable
-              (get-last-table subtable (cdr keys))
+              (create-nested-tables subtable (cdr keys))
               (let ((subtable (make-table (car keys))))
                 (let ((record (list subtable)))
                   (set-cdr! record (cdr table))
                   (set-cdr! table record)
-                  (get-last-table subtable (cdr keys))))))))
+                  (create-nested-tables subtable (cdr keys))))))))
 
   (if (null? keys)
       (error "keys cannot be empty -- INSERT!")
@@ -45,10 +43,10 @@
         (if record
             (begin (set-cdr! record value)
                    table)
-            (let ((last-table (get-last-table table keys))
+            (let ((nested-table (create-nested-tables table (drop-right keys 1)))
                   (record (list (cons (last keys) value))))
-              (set-cdr! record (cdr last-table))
-              (set-cdr! last-table record)
+              (set-cdr! record (cdr nested-table))
+              (set-cdr! nested-table record)
               table)))))
 
 (define (make-table name)
@@ -73,3 +71,10 @@
 (lookup m (list 'key2))
 
 (insert! m (list 'math '**) 422)
+
+(lookup m (list 'math '+))
+(lookup m (list 'math '*))
+(lookup m (list 'math '**))
+
+(lookup m (list 'letters 'a))
+(lookup m (list 'letters 'b))
