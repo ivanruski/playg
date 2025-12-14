@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -13,6 +14,7 @@ import (
 // https://adventofcode.com/2025/day/9
 func main() {
 	coords, _ := readInput()
+
 	fmt.Println(findLargestRect(coords))
 	fmt.Println(findLargestRect2(coords))
 }
@@ -28,7 +30,7 @@ func findLargestRect(coords []point) int {
 			p1 := coords[i]
 			p2 := coords[j]
 
-			if a := calcArea(p1, p2); a > max {
+			if a := calcArea(p1.x, p1.y, p2.x, p2.y); a > max {
 				max = a
 			}
 		}
@@ -37,15 +39,16 @@ func findLargestRect(coords []point) int {
 	return max
 }
 
-// EXTREMELY SLOW!
 func findLargestRect2(coords []point) int {
+	coords, xs, ys := compress(coords)
+
 	max := 0
 	for i := 0; i < len(coords); i++ {
 		for j := i + 1; j < len(coords); j++ {
 			p1 := coords[i]
 			p2 := coords[j]
 
-			if a := calcArea(p1, p2); a > max {
+			if a := calcArea(xs[p1.x], ys[p1.y], xs[p2.x], ys[p2.y]); a > max {
 				if isRectValid(p1, p2, coords) {
 					max = a
 				}
@@ -56,83 +59,78 @@ func findLargestRect2(coords []point) int {
 	return max
 }
 
-func isRectValid(p1, p2 point, coords []point) bool {
-	if p1.x == p2.x {
-		if p1.y > p2.y {
-			p1, p2 = p2, p1
-		}
+func compress(coords []point) ([]point, []int, []int) {
+	xs := []int{}
+	for _, c := range coords {
+		xs = append(xs, c.x, c.x+1)
+	}
 
-		for y := p1.y; y <= p2.y; y++ {
-			if !pointInPolygon(point{p1.x, y}, coords) {
-				return false
-			}
-		}
+	sort.Ints(xs)
+	xs = slices.Compact(xs)
 
-	} else if p1.y == p2.y {
-		if p1.x > p2.x {
-			p1, p2 = p2, p1
-		}
+	ys := []int{}
+	for _, c := range coords {
+		ys = append(ys, c.y, c.y+1)
+	}
 
-		for x := p1.x; x <= p2.x; x++ {
-			if !pointInPolygon(point{x, p1.y}, coords) {
-				return false
-			}
-		}
+	sort.Ints(ys)
+	ys = slices.Compact(ys)
 
-	} else {
-
-		var (
-			topLeft     point
-			topRight    point
-			bottomLeft  point
-			bottomRight point
-		)
-
-		p3 := point{p1.x, p2.y}
-		p4 := point{p2.x, p1.y}
-
-		rectEdges := []point{p1, p2, p3, p4}
-		// top left -> smallest x, y
-		// bottom left -> smaller x, larger y
-		// top right -> larger x, smaller y
-		// bottom right -> larger x, larger y
-		slices.SortFunc(rectEdges, func(a, b point) int {
-			if a.x < b.x {
-				return -1
-			} else if a.x == b.x {
-				if a.y < b.y {
-					return -1
-				} else if a.y == b.y {
-					return 0
-				}
-				return 1
-			}
-
-			return 1
+	newCoords := []point{}
+	for _, c := range coords {
+		newCoords = append(newCoords, point{
+			x: slices.Index(xs, c.x),
+			y: slices.Index(ys, c.y),
 		})
+	}
 
-		topLeft = rectEdges[0]
-		bottomLeft = rectEdges[1]
-		topRight = rectEdges[2]
-		bottomRight = rectEdges[3]
+	return newCoords, xs, ys
+}
 
-		for y := topLeft.y; y <= bottomLeft.y; y++ {
-			if !pointInPolygon(point{topLeft.x, y}, coords) {
-				return false
-			}
+func isRectValid(p1, p2 point, coords []point) bool {
+	var (
+		topLeft     point
+		topRight    point
+		bottomLeft  point
+		bottomRight point
+	)
 
-			if !pointInPolygon(point{bottomRight.x, y}, coords) {
-				return false
-			}
+	p3 := point{p1.x, p2.y}
+	p4 := point{p2.x, p1.y}
+
+	rectEdges := []point{p1, p2, p3, p4}
+	// top left -> smallest x, y
+	// bottom left -> smaller x, larger y
+	// top right -> larger x, smaller y
+	// bottom right -> larger x, larger y
+	slices.SortFunc(rectEdges, func(a, b point) int {
+		if d := a.x - b.x; d != 0 {
+			return d
 		}
-		for x := topLeft.x; x <= topRight.x; x++ {
-			if !pointInPolygon(point{x, topLeft.y}, coords) {
-				return false
-			}
+		return a.y - b.y
+	})
 
-			if !pointInPolygon(point{x, bottomLeft.y}, coords) {
-				return false
-			}
+	topLeft = rectEdges[0]
+	bottomLeft = rectEdges[1]
+	topRight = rectEdges[2]
+	bottomRight = rectEdges[3]
+
+	for y := topLeft.y; y <= bottomLeft.y; y++ {
+		if !pointInPolygon(point{topLeft.x, y}, coords) {
+			return false
+		}
+
+		if !pointInPolygon(point{bottomRight.x, y}, coords) {
+			return false
+		}
+	}
+	for x := topLeft.x; x <= topRight.x; x++ {
+		if !pointInPolygon(point{x, topLeft.y}, coords) {
+			return false
+		}
+
+		if !pointInPolygon(point{x, bottomLeft.y}, coords) {
+			return false
 		}
 	}
 
@@ -202,9 +200,9 @@ func pointOnSegment(p, a, b point) bool {
 	panic("diagonal")
 }
 
-func calcArea(p1, p2 point) int {
-	a := abs(p2.x-p1.x) + 1
-	b := abs(p2.y-p1.y) + 1
+func calcArea(x1, y1, x2, y2 int) int {
+	a := abs(x2-x1) + 1
+	b := abs(y2-y1) + 1
 	return a * b
 }
 
@@ -214,6 +212,22 @@ func abs(x int) int {
 	}
 
 	return x
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+
+	return b
 }
 
 func readInput() ([]point, error) {
@@ -235,4 +249,46 @@ func readInput() ([]point, error) {
 	}
 
 	return coords, nil
+}
+
+// for debugging purposes
+func makegrid(coords []point) [][]rune {
+	var rows, cols int
+	for _, c := range coords {
+		if rows < c.y {
+			rows = c.y
+		}
+
+		if cols < c.x {
+			cols = c.x
+		}
+	}
+
+	rows += 2
+	cols += 2
+
+	grid := make([][]rune, rows)
+	for i := range grid {
+		grid[i] = make([]rune, cols)
+		for j := range cols {
+			grid[i][j] = '.'
+		}
+	}
+
+	for i := 0; i < len(coords); i++ {
+		p1 := coords[i]
+		p2 := coords[(i+1)%len(coords)]
+
+		if p1.x == p2.x {
+			for y := min(p1.y, p2.y); y <= max(p1.y, p2.y); y++ {
+				grid[y][p1.x] = '#'
+			}
+		} else {
+			for x := min(p1.x, p2.x); x <= max(p1.x, p2.x); x++ {
+				grid[p1.y][x] = '#'
+			}
+		}
+	}
+
+	return grid
 }
