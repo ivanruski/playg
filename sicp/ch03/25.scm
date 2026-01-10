@@ -12,17 +12,20 @@
             record
             (assoc (cdr records) key)))))
 
-(define (lookup table keys)
+(define (_lookup table keys)
   (if (null? keys)
-      ;; if it is a pair, return only the value
-      (if (pair? table)
-          (cdr table)
-          table)
+      table
       (let ((key (car keys)))
         (let ((record (assoc (cdr table) key)))
           (if record
-              (lookup record (cdr keys))
+              (_lookup record (cdr keys))
               #f)))))
+
+(define (lookup table keys)
+  (let ((p (_lookup table keys)))
+    (if (pair? p)
+        (cdr p)
+        p)))
 
 (define (insert! table keys value)
   (define (create-nested-tables table keys)
@@ -39,7 +42,7 @@
 
   (if (null? keys)
       (error "keys cannot be empty -- INSERT!")
-      (let ((record (lookup table keys)))
+      (let ((record (_lookup table keys)))
         (if record
             (begin (set-cdr! record value)
                    table)
