@@ -62,8 +62,8 @@
 ;; steps proportional to n. Would the scheme still work if we had simply defined
 ;; memo-fib to be (memoize fib)?
 
-;; The diagram gets very messy, with all the lambdas and lets. At some point I
-;; gave up and tried to explain what will happen.
+;; The diagram gets very messy and not all environments are drawn(with all the
+;; lambdas and lets). At some point I gave up and explained what is happening.
 ;;
 ;; The state prior to evaluating (memo-fib 3)
 ;;
@@ -99,52 +99,52 @@
 ;;                                |               |      +-----------------------------+-|-+
 ;;                                |               |                                      |
 ;;                                |               +--------------------------------------+
-;;                                |               |
-;;                                |               |
-;; evaluating (memo-fib 3)        |               +---------------------------------------+
-;;                                |                                                       |
-;;                                |                                                       |
-;;                        E1: +------+                              E2: +-------------------------------------+
-;;                            | x: 3 |                                  | previously-computed-result: <value> |
-;;                            +------+                                  +-------------------------------------+
+;;                                |
+;;                                |
+;; evaluating (memo-fib 3)        |
+;;                                |
+;;                                |
+;;                         E: +------+
+;;                            | x: 3 |
+;;                            +------+
 ;;
-;;                         (let ((previously-compute-result...))             (or previously-computed-result ...)
+;;                         (let ((previously-compute-result...))
 ;;                           ...)
-;; 
-;; since `previously-computed-result` in E2 is false, we enter the (let ((result...))) clause
 ;;
-;;     (parent env - global env)          (parent env - memoize let env)
-;; E3: +-----+                      E4(same as E1) +-----+                            E5: (same as E2)
-;;     | n:3 |                                     | x:2 |
-;;     +-----+                                     +-----+
+;; since `previously-computed-result` is false, we enter the (let ((result...))) clause
+;; and we invoke f (the memo-fib lambda)
 ;;
-;;    (cond ((= n 0) 0)                        (let ((previously-computed-result...))
-;;      ...)                                     ...)
-;;
-;; since `previously-computed-result` in E5 is false, we enter the (let ((result...))) clause
-;;
-;;     (parent env - global env)
-;; E6: +-----+                      E7(same as E4,E1) +-----+                            E8: (same as E5,E2)
-;;     | n:2 |                                        | x:1 |
-;;     +-----+                                        +-----+
-;;
-;;    (cond ((= n 0) 0)                        (let ((previously-computed-result...))
-;;      ...)                                     ...)
-;;
-;; since `previously-computed-result` in E8 is false, we enter the (let ((result...))) clause
-;;
-;;     (parent env - global env)
-;; E9: +-----+
-;;     | n:1 |
+;;     parent env - memoize env, because the <memo-fib lambda> is evaluated "inside" memoize env
+;;  E: +-----+
+;;     | n:3 |
 ;;     +-----+
 ;;
-;;    evalutes to 1
+;;    (cond ((= n 0) 0)
+;;      ...)
 ;;
-;; E8 will insert (fib 1 = 1) into the table
+;; evaluating (memo-fib 2)
 ;;
-;; E6 will sping up another call to (memo-fib 0) and (fib 0 = 0) will get
-;; inserted into the table and at this point the nested recursive invocation
-;; should start to unwind. (the diagram is a mess!)
+;;      parent env - memoize let env
+;;   E: +------+
+;;      | x: 2 |
+;;      +------+
+;;
+;;   (let ((previously-compute-result...))
+;;     ...)
+;;
+;; again, since `previously-computed-result` is false, we enter the (let ((result...))) clause
+;; and we invoke f (the memo-fib lambda)
+;;
+;;     parent env - memoize env, because the <memo-fib lambda> is evaluated "inside" memoize env
+;;  E: +-----+
+;;     | n:2 |
+;;     +-----+
+;;
+;;    (cond ((= n 0) 0)
+;;      ...)
+;;
+;; ^^^ This will result into two more call to memo-fib - (memo-fib 1) and
+;; (memo-fib 0) and after that the call stack should begin to unwind...
 ;;
 ;;
 ;; Explain why memo-fib computes the nth Fibonacci number in a number of
