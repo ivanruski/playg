@@ -11,6 +11,14 @@
 ;; from an n-bit ripple-carry adder, expressed in terms of the delays for
 ;; and-gates, or-gates, and inverters?
 
+(define (half-adder a b s c)
+  (let ((d (make-wire)) (e (make-wire)))
+    (or-gate a b d)
+    (and-gate a b c)
+    (inverter c e)
+    (and-gate d e s)
+    'ok))
+
 (define (full-adder a b c-in sum c-out)
   (let ((s (make-wire))
         (c1 (make-wire))
@@ -41,3 +49,35 @@
               (reverse Bs)
               (reverse Ss)
               c-in)))
+
+;; What is the delay needed to obtain the complete output from an n-bit
+;; ripple-carry adder, expressed in terms of the delays for and-gates, or-gates,
+;; and inverters?
+
+;;;; The delay for adding 1-bit numbers are as follows:
+;;
+;; The delays in the half-adders are as follows:
+;;
+;; For the s bit, the delay is: max(or-delay, inverter-delay + and-delay) + and-delay
+(define (half-adder a b s c)
+  (let ((d (make-wire)) (e (make-wire)))
+    (or-gate a b d) ;; d is here
+    (and-gate a b c) ;; e depends on c
+    (inverter c e) ;; e is here
+    (and-gate d e s) ;; in order to get s, we need input from d and e
+    'ok))
+
+;; For the c, the delay is: and-delay
+;;
+;; The dealys in the full-adder are as follows:
+;;
+;; The sum delay is: [max(or-delay, inverter-delay + and-delay) + and-delay] + [max(or-delay, inverter-delay + and-delay) + and-delay]
+;; (the first [<sum>] because we need the result from 's' and the second [<sum>] to get 'sum'
+;;
+;; For the c-out the delay is: and-delay + or-delay
+;;
+;;;; The delay for adding n-bit numbers are as follows:
+;;
+;; The final s delay is: (n - 1) * (and-delay + or-delay) (we need the second to last c-out) + the sum delay from above
+;;
+;; The final c-out delay is: n * (and-delay + or-delay)
