@@ -5,21 +5,10 @@
 
 ;; 1. define integers stream
 
-(define (create-integers-stream)
-  (define (next num)
-    (cons-stream num
-                 (next (+ 1 num))))
+(define (integers-starting-from n)
+  (cons-stream n (integers-starting-from (+ n 1))))
 
-  (cons-stream 1 (next 2)))
-
-(define integers (create-integers-stream))
-
-(define (iterate-stream stream n)
-  (cond ((empty-stream? stream) the-empty-stream)
-        ((> n 0)
-         (display (stream-car stream))
-         (newline)
-         (iterate-stream (stream-cdr stream) (- n 1)))))
+(define integers (integers-starting-from 1))
 
 ;; 2. define partial-sums stream
 
@@ -32,3 +21,11 @@
   (cons-stream (stream-car integers)
                (next (stream-car integers)
                      (stream-cdr integers))))
+
+;; v2 - I didn't like the first solution and after going throught the chapter
+;; again I came up with this one, which I like more
+
+(define (partial-sums s)
+  (cons-stream (stream-car s)
+               (partial-sums (cons-stream (+ (stream-car s) (stream-car (stream-cdr s)))
+                                          (stream-cdr (stream-cdr s))))))
