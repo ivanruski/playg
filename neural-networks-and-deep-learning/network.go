@@ -75,30 +75,30 @@ type TrainingSample struct {
 
 // Brute force implementation, where backprop is not being used
 func (n *Network) NaiveSGD(training_data []TrainingSample, epochs, mini_batch_size int, eta float64) {
-	d_gradient := make([][][]float64, n.num_layers)
-	d_biases := make([][]float64, n.num_layers)
-	for l := 1; l < n.num_layers; l++ {
-		d_gradient[l] = make([][]float64, n.sizes[l])
-		d_biases[l] = make([]float64, n.sizes[l])
-		for j := range n.sizes[l] {
-			d_gradient[l][j] = make([]float64, n.sizes[l-1])
-		}
-	}
-
-	wg := make([][][]float64, n.num_layers)
-	wb := make([][]float64, n.num_layers)
-	for l := 1; l < n.num_layers; l++ {
-		wg[l] = make([][]float64, n.sizes[l])
-		wb[l] = make([]float64, n.sizes[l])
-		for j := range n.sizes[l] {
-			wg[l][j] = make([]float64, n.sizes[l-1])
-		}
-	}
-
 	for range epochs {
 
 		batches := batchTrainingData(training_data, mini_batch_size)
 		for i, batch := range batches {
+
+			d_gradient := make([][][]float64, n.num_layers)
+			d_biases := make([][]float64, n.num_layers)
+			for l := 1; l < n.num_layers; l++ {
+				d_gradient[l] = make([][]float64, n.sizes[l])
+				d_biases[l] = make([]float64, n.sizes[l])
+				for j := range n.sizes[l] {
+					d_gradient[l][j] = make([]float64, n.sizes[l-1])
+				}
+			}
+
+			wg := make([][][]float64, n.num_layers)
+			wb := make([][]float64, n.num_layers)
+			for l := 1; l < n.num_layers; l++ {
+				wg[l] = make([][]float64, n.sizes[l])
+				wb[l] = make([]float64, n.sizes[l])
+				for j := range n.sizes[l] {
+					wg[l][j] = make([]float64, n.sizes[l-1])
+				}
+			}
 
 			fmt.Printf("batch %d out of %d\n", i, len(batches))
 
@@ -116,7 +116,7 @@ func (n *Network) NaiveSGD(training_data []TrainingSample, epochs, mini_batch_si
 
 							c2 := cost(training_sample.Y, n.FeedForward(training_sample.X))
 
-							wg[l][j][k] = (c2 - c1) / 2 * eta
+							wg[l][j][k] = (c2 - c1) / (2 * eta)
 
 							n.weights[l][j][k] = w
 						}
@@ -134,7 +134,7 @@ func (n *Network) NaiveSGD(training_data []TrainingSample, epochs, mini_batch_si
 
 						c2 := cost(training_sample.Y, n.FeedForward(training_sample.X))
 
-						wb[l][j] = (c2 - c1) / 2 * eta
+						wb[l][j] = (c2 - c1) / (2 * eta)
 
 						n.biases[l][j] = b
 					}
@@ -158,7 +158,7 @@ func (n *Network) NaiveSGD(training_data []TrainingSample, epochs, mini_batch_si
 
 					d_biases[l][j] /= float64(mini_batch_size)
 					for k := range n.sizes[l-1] {
-						d_gradient[l][j][k] += float64(mini_batch_size)
+						d_gradient[l][j][k] /= float64(mini_batch_size)
 					}
 				}
 			}
@@ -167,9 +167,9 @@ func (n *Network) NaiveSGD(training_data []TrainingSample, epochs, mini_batch_si
 			for l := 1; l < n.num_layers; l++ {
 				for j := range n.sizes[l] {
 
-					n.biases[l][j] += d_biases[l][j]
+					n.biases[l][j] -= d_biases[l][j]
 					for k := range n.sizes[l-1] {
-						n.weights[l][j][k] += d_gradient[l][j][k]
+						n.weights[l][j][k] -= d_gradient[l][j][k]
 					}
 				}
 			}
