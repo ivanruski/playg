@@ -36,6 +36,7 @@ func NewNetwork(sizes []int) Network {
 		biases[l] = make([]float64, sizes[l])
 
 		for j := range sizes[l] {
+			biases[l][j] = rand.NormFloat64()
 			weights[l][j] = make([]float64, sizes[l-1])
 
 			for k := range sizes[l-1] {
