@@ -75,6 +75,8 @@ type TrainingSample struct {
 
 // Brute force implementation, where backprop is not being used
 func (n *Network) NaiveSGD(training_data []TrainingSample, epochs, mini_batch_size int, eta float64) {
+	const epsilon = 0.0001
+
 	for range epochs {
 
 		batches := batchTrainingData(training_data, mini_batch_size)
@@ -108,15 +110,15 @@ func (n *Network) NaiveSGD(training_data []TrainingSample, epochs, mini_batch_si
 					for j := range n.sizes[l] {
 						for k := range n.sizes[l-1] {
 							w := n.weights[l][j][k]
-							n.weights[l][j][k] = w - eta
+							n.weights[l][j][k] = w - epsilon
 
 							c1 := cost(training_sample.Y, n.FeedForward(training_sample.X))
 
-							n.weights[l][j][k] = w + eta
+							n.weights[l][j][k] = w + epsilon
 
 							c2 := cost(training_sample.Y, n.FeedForward(training_sample.X))
 
-							wg[l][j][k] = (c2 - c1) / (2 * eta)
+							wg[l][j][k] = (c2 - c1) / (2 * epsilon)
 
 							n.weights[l][j][k] = w
 						}
@@ -126,15 +128,15 @@ func (n *Network) NaiveSGD(training_data []TrainingSample, epochs, mini_batch_si
 				for l := 1; l < n.num_layers; l++ {
 					for j := range n.sizes[l] {
 						b := n.biases[l][j]
-						n.biases[l][j] = b - eta
+						n.biases[l][j] = b - epsilon
 
 						c1 := cost(training_sample.Y, n.FeedForward(training_sample.X))
 
-						n.biases[l][j] = b + eta
+						n.biases[l][j] = b + epsilon
 
 						c2 := cost(training_sample.Y, n.FeedForward(training_sample.X))
 
-						wb[l][j] = (c2 - c1) / (2 * eta)
+						wb[l][j] = (c2 - c1) / (2 * epsilon)
 
 						n.biases[l][j] = b
 					}
@@ -167,9 +169,9 @@ func (n *Network) NaiveSGD(training_data []TrainingSample, epochs, mini_batch_si
 			for l := 1; l < n.num_layers; l++ {
 				for j := range n.sizes[l] {
 
-					n.biases[l][j] -= d_biases[l][j]
+					n.biases[l][j] -= (d_biases[l][j] * eta)
 					for k := range n.sizes[l-1] {
-						n.weights[l][j][k] -= d_gradient[l][j][k]
+						n.weights[l][j][k] -= (d_gradient[l][j][k] * eta)
 					}
 				}
 			}
