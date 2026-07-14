@@ -38,3 +38,16 @@ func Sub(x, y []float64) []float64 {
 
 	return r
 }
+
+func IndexOfMax(v []float64) int {
+	max := -1.
+	maxI := -1
+	for i, a := range v {
+		if a > max {
+			max = a
+			maxI = i
+		}
+	}
+
+	return maxI
+}

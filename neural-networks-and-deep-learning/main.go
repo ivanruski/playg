@@ -1,15 +1,22 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"time"
 
 	"github.com/ivanruski/playg/neural-networks-and-deep-learning/mnist"
 )
 
 func main() {
+	var loadFromState bool
+	flag.BoolVar(&loadFromState, "from-state", false, "preload weights and biases from file")
+	flag.Parse()
+
 	dataset, err := mnist.ReadDataSet(
 		"./data/mnist/train-images-idx3-ubyte/train-images-idx3-ubyte",
 		"./data/mnist/train-labels-idx1-ubyte/train-labels-idx1-ubyte",
@@ -20,12 +27,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	training_data := normalizeMnistDataset(dataset)
-	net := NewNetwork([]int{784, 20, 10})
+	var net *Network
+	if loadFromState {
+		net = NewNetworkFromState()
+	} else {
+		net = NewNetwork([]int{784, 30, 10})
+	}
+
+	data := normalizeMnistDataset(dataset)
+	training_data := data[:50_000]
+	test_data := data[50_000:]
 
 	fmt.Println("before training", time.Now())
-	net.NaiveSGD(training_data, 1, 10, 1)
+	net.EvalPerformance(test_data)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	net.NaiveSGD(ctx, training_data, 1, 30, 1)
+
 	fmt.Println("post training", time.Now())
+	net.EvalPerformance(test_data)
 }
 
 // convert an mnist image representation to one dimensional vector and the digit its represent
@@ -54,14 +76,4 @@ func flattenImage(image [][]uint8) []float64 {
 	}
 
 	return f
-}
-
-func printMatrix(m [][]float64) {
-	for i := 0; i < len(m); i++ {
-		for j := 0; j < len(m[i]); j++ {
-			fmt.Printf("%.10f ", m[i][j])
-		}
-		fmt.Println()
-	}
-	fmt.Println()
 }
