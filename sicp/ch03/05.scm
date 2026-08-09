@@ -46,15 +46,15 @@
   (let ((area (* (abs (- x2 x1)) (abs (- y2 y1))))
         (fraction (monte-carlo trials
                                (lambda ()
-                                 (let ((x (random-in-range (* x1 1.) (* x2 1.)))
-                                       (y (random-in-range (* y1 1.) (* y2 1.))))
+                                 (let ((x (random-in-range x1 x2))
+                                       (y (random-in-range y1 y2)))
                                    (predicate x y))))))
-    (* area fraction 1.)))
+    (* area fraction)))
 
 (define (estimate-pi trials)
   (/ (estimate-integral (lambda (x y)
                           (<= (+ (square (- x 5)) (square (- y 7)))
                               9))
-                        2 4 8 10
+                        2. 4. 8. 10.
                         trials)
      9))
