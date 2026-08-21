@@ -1,5 +1,5 @@
 module ivanruski.com/gopl/ch05/findlinks
 
-go 1.16
+go 1.25.0
 
-require golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1
+require golang.org/x/net v0.55.0
