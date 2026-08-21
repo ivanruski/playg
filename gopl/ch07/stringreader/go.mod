@@ -1,5 +1,5 @@
 module ivanruski/gopl/ch07/stringreader
 
-go 1.16
+go 1.25.0
 
-require golang.org/x/net v0.0.0-20210427231257-85d9c07bbe3a
+require golang.org/x/net v0.55.0
