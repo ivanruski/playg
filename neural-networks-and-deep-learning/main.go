@@ -44,7 +44,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	net.NaiveSGD(ctx, training_data, 1, 30, 1)
+	net.SGD(ctx, training_data, 30, 30, 1)
 
 	fmt.Println("post training", time.Now())
 	net.EvalPerformance(test_data)

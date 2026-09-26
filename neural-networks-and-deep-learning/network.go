@@ -11,6 +11,8 @@ import (
 	"github.com/ivanruski/playg/neural-networks-and-deep-learning/numgo"
 )
 
+const epsilon = 0.0001
+
 type Network struct {
 	NumLayers int
 	Sizes     []int
@@ -61,7 +63,21 @@ func NewNetwork(sizes []int) *Network {
 }
 
 func (n *Network) FeedForward(a []float64) []float64 {
+	_, a_m := n.FeedForwardBackprop(a)
+
+	return a_m[n.NumLayers-1]
+}
+
+func (n *Network) FeedForwardBackprop(a []float64) ([][]float64, [][]float64) {
+	z_m := make([][]float64, n.NumLayers)
+	a_m := make([][]float64, n.NumLayers)
+
+	a_m[0] = a
+
 	for l := 1; l < n.NumLayers; l++ {
+		z_m[l] = make([]float64, n.Sizes[l])
+		a_m[l] = make([]float64, n.Sizes[l])
+
 		anext := []float64{}
 
 		for j := range n.Sizes[l] {
@@ -69,23 +85,26 @@ func (n *Network) FeedForward(a []float64) []float64 {
 			b := n.Biases[l][j]
 
 			z := numgo.DotProduct(w, a) + b
-			anext = append(anext, sigmoid(z))
+			a := sigmoid(z)
+
+			z_m[l][j] = z
+			a_m[l][j] = a
+
+			anext = append(anext, a)
 		}
 
 		a = anext
 	}
 
-	return a
+	return z_m, a_m
 }
 
 type TrainingSample struct {
-	X []float64
-	Y []float64
+	X []float64 // input
+	Y []float64 // expected output
 }
 
 func (n *Network) NaiveSGD(ctx context.Context, training_data []TrainingSample, epochs, mini_batch_size int, eta float64) {
-	const epsilon = 0.0001
-
 	for range epochs {
 		batches := batchTrainingData(training_data, mini_batch_size)
 		for i, batch := range batches {
@@ -199,6 +218,98 @@ func (n *Network) NaiveSGD(ctx context.Context, training_data []TrainingSample, 
 	}
 }
 
+func (n *Network) SGD(ctx context.Context, training_data []TrainingSample, epochs, mini_batch_size int, eta float64) {
+	for range epochs {
+		batches := batchTrainingData(training_data, mini_batch_size)
+
+		for i, batch := range batches {
+
+			wg := make([][][]float64, n.NumLayers)
+			bg := make([][]float64, n.NumLayers)
+			for l := 1; l < n.NumLayers; l++ {
+				wg[l] = make([][]float64, n.Sizes[l])
+				bg[l] = make([]float64, n.Sizes[l])
+				for j := range n.Sizes[l] {
+					wg[l][j] = make([]float64, n.Sizes[l-1])
+				}
+			}
+
+			preTrainingBatchCost := batchCost(n, batch)
+
+			for _, training_sample := range batch {
+
+				select {
+				case <-ctx.Done():
+					fmt.Println("ctx.Done, saving state and exiting")
+					n.saveState()
+					return
+				default:
+					z_m, a_m := n.FeedForwardBackprop(training_sample.X)
+
+					zL := z_m[len(z_m)-1]
+					aL := a_m[len(a_m)-1]
+
+					dM := make([][]float64, n.NumLayers)
+					// Cₓ = C
+					// 1. compute the ouput error δᴸ = ∇ₐC ⊙ σ′(zᴸ)
+					dM[n.NumLayers-1] = outputError(zL, aL, training_sample.Y)
+
+					// 2. backprop the error δˡ = ((wˡ⁺¹)ᵀ * δˡ⁺¹) ⊙ σ′(zˡ)
+					for l := n.NumLayers - 2; l > 0; l-- {
+						wT := numgo.Transpose(n.Weights[l+1])
+						dM[l] = backpropError(wT, dM[l+1], z_m[l])
+					}
+
+					// accumulate ∂C/∂wˡⱼk & ∂C/∂bˡⱼ
+
+					// 3. ∂C/∂wˡⱼk = aˡ⁻¹k*δˡⱼ
+					for l := 1; l < n.NumLayers; l++ {
+						for j := range n.Sizes[l] {
+							for k := range n.Sizes[l-1] {
+								wg[l][j][k] += a_m[l-1][k] * dM[l][j]
+							}
+						}
+					}
+
+					// 4. ∂C/∂bˡⱼ = δˡⱼ
+					for l := 1; l < n.NumLayers; l++ {
+						for j := range n.Sizes[l] {
+							bg[l][j] += dM[l][j]
+						}
+					}
+				}
+			}
+
+			// average the accumulated values in wg & bg
+			for l := 1; l < n.NumLayers; l++ {
+				for j := range n.Sizes[l] {
+
+					bg[l][j] /= float64(len(batch))
+					for k := range n.Sizes[l-1] {
+						wg[l][j][k] /= float64(len(batch))
+					}
+				}
+			}
+
+			// do the gradient descent step
+			for l := 1; l < n.NumLayers; l++ {
+				for j := range n.Sizes[l] {
+
+					n.Biases[l][j] -= (eta * bg[l][j])
+					for k := range n.Sizes[l-1] {
+						n.Weights[l][j][k] -= (eta * wg[l][j][k])
+					}
+				}
+			}
+
+			postTrainingBatchCost := batchCost(n, batch)
+			fmt.Printf("batch %d/%d\n", i, len(batches))
+			fmt.Printf("cost before: %f\n", preTrainingBatchCost)
+			fmt.Printf("cost  after: %f\n", postTrainingBatchCost)
+		}
+	}
+}
+
 func batchCost(n *Network, training_data []TrainingSample) float64 {
 	var sum float64
 
@@ -266,7 +377,40 @@ func batchTrainingData(training_data []TrainingSample, batch_size int) [][]Train
 }
 
 func sigmoid(z float64) float64 {
-	return 1.0 / (1.0 + math.Exp(-z))
+	return 1. / (1. + math.Exp(-z))
+}
+
+// compute the ouput error δᴸ = ∇ₐC ⊙ σ′(zᴸ)
+func outputError(zL, aL, y []float64) []float64 {
+	return numgo.HadamardProduct(
+		output_gradient(aL, y),
+		sigmoidPrimeVector(zL),
+	)
+}
+
+// backprop the error δˡ = ((wˡ⁺¹)ᵀ * δˡ⁺¹) ⊙ σ′(zˡ)
+func backpropError(wT [][]float64, errorFromNextLayer, zL []float64) []float64 {
+	return numgo.HadamardProduct(
+		numgo.MatrixByVector(wT, errorFromNextLayer),
+		sigmoidPrimeVector(zL),
+	)
+}
+
+func sigmoidPrimeVector(zL []float64) []float64 {
+	dL := make([]float64, len(zL))
+	for i, z := range zL {
+		dL[i] = sigmoid_prime(z)
+	}
+
+	return dL
+}
+
+func sigmoid_prime(z float64) float64 {
+	return math.Exp(-z) / math.Pow(1.+math.Exp(-z), 2)
+}
+
+func output_gradient(a, y []float64) []float64 {
+	return numgo.Sub(a, y)
 }
 
 func sigmoid2(z []float64) []float64 {
