@@ -12,4 +12,4 @@
 
 (define integers (cons-stream 1 (stream-map + ones integers)))
 
-(define factorials (cons-stream 1 (mul-streams (stream-cdr integers) factorials)))
+(define factorials (cons-stream 1 (mul-streams integers factorials)))
