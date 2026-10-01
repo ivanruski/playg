@@ -29,3 +29,10 @@
   (cons-stream (stream-car s)
                (partial-sums (cons-stream (+ (stream-car s) (stream-car (stream-cdr s)))
                                           (stream-cdr (stream-cdr s))))))
+
+;; v3 - after re-doing the exercise several months later, I got to THE solution
+
+(define (partial-sums S)
+  (define ps (cons-stream (stream-car S)
+                          (add-streams ps (stream-cdr S))))
+  ps)
