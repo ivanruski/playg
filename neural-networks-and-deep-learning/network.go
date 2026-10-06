@@ -62,6 +62,21 @@ func NewNetwork(sizes []int) *Network {
 	return n
 }
 
+func (n *Network) EvalPerformance(test_data []TrainingSample) {
+	var correct, incorrect int
+
+	for _, input := range test_data {
+		activations := n.FeedForward(input.X)
+		if numgo.IndexOfMax(activations) == numgo.IndexOfMax(input.Y) {
+			correct++
+		} else {
+			incorrect++
+		}
+	}
+
+	fmt.Printf("Performance:\ncorrect: %d, incorrect: %d\n", correct, incorrect)
+}
+
 func (n *Network) FeedForward(a []float64) []float64 {
 	_, a_m := n.FeedForwardBackprop(a)
 
@@ -104,125 +119,11 @@ type TrainingSample struct {
 	Y []float64 // expected output
 }
 
-func (n *Network) NaiveSGD(ctx context.Context, training_data []TrainingSample, epochs, mini_batch_size int, eta float64) {
-	for range epochs {
-		batches := batchTrainingData(training_data, mini_batch_size)
-		for i, batch := range batches {
-
-			d_gradient := make([][][]float64, n.NumLayers)
-			d_biases := make([][]float64, n.NumLayers)
-			for l := 1; l < n.NumLayers; l++ {
-				d_gradient[l] = make([][]float64, n.Sizes[l])
-				d_biases[l] = make([]float64, n.Sizes[l])
-				for j := range n.Sizes[l] {
-					d_gradient[l][j] = make([]float64, n.Sizes[l-1])
-				}
-			}
-
-			wg := make([][][]float64, n.NumLayers)
-			wb := make([][]float64, n.NumLayers)
-			for l := 1; l < n.NumLayers; l++ {
-				wg[l] = make([][]float64, n.Sizes[l])
-				wb[l] = make([]float64, n.Sizes[l])
-				for j := range n.Sizes[l] {
-					wg[l][j] = make([]float64, n.Sizes[l-1])
-				}
-			}
-
-			preTrainingBatchCost := batchCost(n, batch)
-
-			for _, training_sample := range batch {
-
-				select {
-				case <-ctx.Done():
-					fmt.Println("ctx.Done, saving state and exiting")
-					n.saveState()
-					return
-				default:
-					for l := 1; l < n.NumLayers; l++ {
-						for j := range n.Sizes[l] {
-							for k := range n.Sizes[l-1] {
-								w := n.Weights[l][j][k]
-								n.Weights[l][j][k] = w - epsilon
-
-								c1 := cost(training_sample.Y, n.FeedForward(training_sample.X))
-
-								n.Weights[l][j][k] = w + epsilon
-
-								c2 := cost(training_sample.Y, n.FeedForward(training_sample.X))
-
-								wg[l][j][k] = (c2 - c1) / (2 * epsilon)
-
-								n.Weights[l][j][k] = w
-							}
-						}
-					}
-
-					for l := 1; l < n.NumLayers; l++ {
-						for j := range n.Sizes[l] {
-							b := n.Biases[l][j]
-							n.Biases[l][j] = b - epsilon
-
-							c1 := cost(training_sample.Y, n.FeedForward(training_sample.X))
-
-							n.Biases[l][j] = b + epsilon
-
-							c2 := cost(training_sample.Y, n.FeedForward(training_sample.X))
-
-							wb[l][j] = (c2 - c1) / (2 * epsilon)
-
-							n.Biases[l][j] = b
-						}
-					}
-
-					// add the per sample rate of change
-					for l := 1; l < n.NumLayers; l++ {
-						for j := range n.Sizes[l] {
-
-							d_biases[l][j] += wb[l][j]
-							for k := range n.Sizes[l-1] {
-								d_gradient[l][j][k] += wg[l][j][k]
-							}
-						}
-					}
-				}
-			}
-
-			// average d_gradient & d_biases over the batch_size
-			for l := 1; l < n.NumLayers; l++ {
-				for j := range n.Sizes[l] {
-
-					d_biases[l][j] /= float64(len(batch))
-					for k := range n.Sizes[l-1] {
-						d_gradient[l][j][k] /= float64(len(batch))
-					}
-				}
-			}
-
-			// update the weights & biases after the batch is complete
-			for l := 1; l < n.NumLayers; l++ {
-				for j := range n.Sizes[l] {
-
-					n.Biases[l][j] -= (d_biases[l][j] * eta)
-					for k := range n.Sizes[l-1] {
-						n.Weights[l][j][k] -= (d_gradient[l][j][k] * eta)
-					}
-				}
-			}
-
-			postTrainingBatchCost := batchCost(n, batch)
-			fmt.Printf("batch %d/%d\n", i, len(batches))
-			fmt.Printf("cost before: %f\n", preTrainingBatchCost)
-			fmt.Printf("cost  after: %f\n", postTrainingBatchCost)
-		}
-	}
-}
-
-func (n *Network) SGD(ctx context.Context, training_data []TrainingSample, epochs, mini_batch_size int, eta float64) {
+func (n *Network) SGD(_ context.Context, training_data []TrainingSample, epochs, mini_batch_size int, eta float64) {
 	for range epochs {
 		batches := batchTrainingData(training_data, mini_batch_size)
 
-		for i, batch := range batches {
+		for _, batch := range batches {
 
 			wg := make([][][]float64, n.NumLayers)
 			bg := make([][]float64, n.NumLayers)
@@ -234,48 +135,38 @@ func (n *Network) SGD(ctx context.Context, training_data []TrainingSample, epoch
 				}
 			}
 
-			preTrainingBatchCost := batchCost(n, batch)
-
 			for _, training_sample := range batch {
+				zs, activations := n.FeedForwardBackprop(training_sample.X)
 
-				select {
-				case <-ctx.Done():
-					fmt.Println("ctx.Done, saving state and exiting")
-					n.saveState()
-					return
-				default:
-					z_m, a_m := n.FeedForwardBackprop(training_sample.X)
+				zL := zs[len(zs)-1]
+				aL := activations[len(activations)-1]
 
-					zL := z_m[len(z_m)-1]
-					aL := a_m[len(a_m)-1]
+				dM := make([][]float64, n.NumLayers)
+				// Cₓ = C
+				// 1. compute the ouput error δᴸ = ∇ₐC ⊙ σ′(zᴸ)
+				dM[n.NumLayers-1] = outputError(zL, aL, training_sample.Y)
 
-					dM := make([][]float64, n.NumLayers)
-					// Cₓ = C
-					// 1. compute the ouput error δᴸ = ∇ₐC ⊙ σ′(zᴸ)
-					dM[n.NumLayers-1] = outputError(zL, aL, training_sample.Y)
+				// 2. backprop the error δˡ = ((wˡ⁺¹)ᵀ * δˡ⁺¹) ⊙ σ′(zˡ)
+				for l := n.NumLayers - 2; l > 0; l-- {
+					wT := numgo.Transpose(n.Weights[l+1])
+					dM[l] = backpropError(wT, dM[l+1], zs[l])
+				}
 
-					// 2. backprop the error δˡ = ((wˡ⁺¹)ᵀ * δˡ⁺¹) ⊙ σ′(zˡ)
-					for l := n.NumLayers - 2; l > 0; l-- {
-						wT := numgo.Transpose(n.Weights[l+1])
-						dM[l] = backpropError(wT, dM[l+1], z_m[l])
-					}
+				// accumulate ∂C/∂wˡⱼk & ∂C/∂bˡⱼ
 
-					// accumulate ∂C/∂wˡⱼk & ∂C/∂bˡⱼ
-
-					// 3. ∂C/∂wˡⱼk = aˡ⁻¹k*δˡⱼ
-					for l := 1; l < n.NumLayers; l++ {
-						for j := range n.Sizes[l] {
-							for k := range n.Sizes[l-1] {
-								wg[l][j][k] += a_m[l-1][k] * dM[l][j]
-							}
+				// 3. ∂C/∂wˡⱼk = aˡ⁻¹k*δˡⱼ
+				for l := 1; l < n.NumLayers; l++ {
+					for j := range n.Sizes[l] {
+						for k := range n.Sizes[l-1] {
+							wg[l][j][k] += activations[l-1][k] * dM[l][j]
 						}
 					}
+				}
 
-					// 4. ∂C/∂bˡⱼ = δˡⱼ
-					for l := 1; l < n.NumLayers; l++ {
-						for j := range n.Sizes[l] {
-							bg[l][j] += dM[l][j]
-						}
+				// 4. ∂C/∂bˡⱼ = δˡⱼ
+				for l := 1; l < n.NumLayers; l++ {
+					for j := range n.Sizes[l] {
+						bg[l][j] += dM[l][j]
 					}
 				}
 			}
@@ -301,23 +192,10 @@ func (n *Network) SGD(ctx context.Context, training_data []TrainingSample, epoch
 					}
 				}
 			}
-
-			postTrainingBatchCost := batchCost(n, batch)
-			fmt.Printf("batch %d/%d\n", i, len(batches))
-			fmt.Printf("cost before: %f\n", preTrainingBatchCost)
-			fmt.Printf("cost  after: %f\n", postTrainingBatchCost)
 		}
 	}
-}
 
-func batchCost(n *Network, training_data []TrainingSample) float64 {
-	var sum float64
-
-	for _, sample := range training_data {
-		sum += cost(sample.Y, n.FeedForward(sample.X))
-	}
-
-	return sum / float64(len(training_data))
+	n.saveState()
 }
 
 func (n *Network) loadState() {
@@ -342,21 +220,6 @@ func (n *Network) saveState() {
 	}
 
 	os.WriteFile("./.state/net.json", data, 0664)
-}
-
-func (n *Network) EvalPerformance(test_data []TrainingSample) {
-	var correct, incorrect int
-
-	for _, input := range test_data {
-		activations := n.FeedForward(input.X)
-		if numgo.IndexOfMax(activations) == numgo.IndexOfMax(input.Y) {
-			correct++
-		} else {
-			incorrect++
-		}
-	}
-
-	fmt.Printf("Performance:\ncorrect: %d, incorrect: %d\n", correct, incorrect)
 }
 
 func batchTrainingData(training_data []TrainingSample, batch_size int) [][]TrainingSample {
@@ -411,15 +274,6 @@ func sigmoid_prime(z float64) float64 {
 
 func output_gradient(a, y []float64) []float64 {
 	return numgo.Sub(a, y)
-}
-
-func sigmoid2(z []float64) []float64 {
-	vectorized := make([]float64, len(z))
-	for i, zi := range z {
-		vectorized[i] = sigmoid(zi)
-	}
-
-	return vectorized
 }
 
 // C = 1/2*||y - a||^2
