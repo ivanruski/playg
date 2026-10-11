@@ -24,26 +24,46 @@
 
 ;;;; How many additions are performed when we compute the nth Fibonacci number?
 ;;
-;; One addition should only be performed, we add the last 2 elements of the fibs
-;; stream, and delay the n+1th. We don't reitarate from start every time we
-;; compute the nth fibonacci.
+;; The additions must be n - 2(if we count the 0 as the 1st element, not as the
+;; 0-ed), because the first 2 elements are hardcoded and for the 3rd we need 1
+;; addition, for the 4th one more and so on.
 ;;
-;; In total to get to the nth fibonacci, we'd need n - 2 additions.
+;; If we start from 0, the 0-ed and the 1st are hardcoded and we need 1 addition
+;; for the 2nd, one more for the 3rd and so on. In this case the additions will
+;; be n - 1.
 
 
 ;;;; Show that the number of additions would be exponentially greater if we had
 ;;;; implemented (delay <exp>) simply as (lambda () <exp>), without using the
 ;;;; optimization provided by the memo-proc procedure described in section 3.5.1.
 ;;
-;; If we don't have the optimization in place, I don't even know how this would work
-
-;; 0 -> 1 -> (apply + (map stream-car (stream-cdr fibs) fibs))
-;;           (stream-map + (stream-cdr (stream-cdr fibs)) (stream-cdr fibs)) ->
+;; Every cdr part of a stream pair will be a function and this is how I imagine
+;; the whole thing:
 ;;
-;; -> (apply + (map stream-car (stream-cdr (stream-cdr fibs)) (stream-cdr fibs)))
-;;    ....
+;; FN0 +---+---+
+;;     | 0 | ----->  FN1
+;;     +---+---+
 ;;
-;; I imagine something like this, which would mean, that we always have a
-;; reference to the begginging of the fibs stream and we always recomupte
-;; everything from the start - this resembles the naive implementation of
-;; Fibonnaci which is exponential.
+;; FN1 +---+---+
+;;     | 1 | ----->  FN2
+;;     +---+---+
+;;
+;;     Where the car is computed by (map + fibs FN1)
+;; FN2 +---+---+
+;;     | 1 | ----->  FN3
+;;     +---+---+
+;;
+;;     Where the car is computed by (map + FN1 FN2)
+;; FN3 +---+---+
+;;     | 2 | ----->  FN4
+;;     +---+---+
+;;
+;;     Where the car is computed by (map + FN2 FN3)
+;; FN4 +---+---+
+;;     | 3 | ----->  FN5
+;;     +---+---+
+;;
+;; If you are at the 5th fib (FN4), in order to find it we'd have to first
+;; evaluate FN2 & FN3, to get the value of FN3 we'd have to evaluate FN1 & FN2
+;; and so on. This is basically the naive fib(n) = fib(n-1) + fib(n-2), definition
+;; which has an exponential growth(as we found out in chapter 1)
