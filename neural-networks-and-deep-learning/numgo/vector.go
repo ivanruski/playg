@@ -1,6 +1,9 @@
 package numgo
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 func VectorLen(v []float64) float64 {
 	var len float64
@@ -19,6 +22,20 @@ func DotProduct(x, y []float64) float64 {
 	}
 
 	return sum
+}
+
+func MatrixMul(x, y [][]float64) [][]float64 {
+	if len(x[0]) != len(y) {
+		return nil
+	}
+
+	ty := Transpose(y)
+	m := make([][]float64, len(x))
+	for i, xi := range x {
+		m[i] = MatrixByVector(ty, xi)
+	}
+
+	return m
 }
 
 func MatrixByVector(m [][]float64, v []float64) []float64 {
@@ -55,11 +72,70 @@ func HadamardProduct(x, y []float64) []float64 {
 	return res
 }
 
+func MatrixHadamardAdd(m [][]float64, v []float64) [][]float64 {
+	r := make([][]float64, len(m))
+
+	for i := range m {
+		r[i] = make([]float64, len(m[0]))
+	}
+
+	for j := range m[0] {
+		for i := range m {
+			r[i][j] = m[i][j] + v[i]
+		}
+	}
+
+	return r
+}
+
+func MatrixSub(m1, m2 [][]float64) [][]float64 {
+	r := make([][]float64, len(m1))
+
+	for i := range m1 {
+		r[i] = make([]float64, len(m1[i]))
+		for j := range m1[i] {
+			r[i][j] = m1[i][j] - m2[i][j]
+		}
+	}
+
+	return r
+}
+
+func MatrixHadamard(m1, m2 [][]float64) [][]float64 {
+	if len(m1) != len(m2) {
+		panic(fmt.Sprintf("m1(len = %d) != m2(len = %d)", len(m1), len(m2)))
+	}
+
+	r := make([][]float64, len(m1))
+
+	for i := range m1 {
+		r[i] = make([]float64, len(m1[i]))
+		if len(m1[i]) != len(m2[i]) {
+			panic(fmt.Sprintf("len(m1[%d]) != (m2[%d])", len(m1[i]), len(m2[i])))
+		}
+		for j := range m1[i] {
+			r[i][j] = m1[i][j] * m2[i][j]
+		}
+	}
+
+	return r
+}
+
 func Sub(x, y []float64) []float64 {
 	r := make([]float64, 0, len(x))
 
 	for i, xi := range x {
 		r = append(r, xi-y[i])
+	}
+
+	return r
+}
+
+func Add(x, y []float64) []float64 {
+	r := make([]float64, 0, len(x))
+
+	for i, xi := range x {
+		r = append(r, xi+y[i])
 	}
 
 	return r
@@ -76,4 +152,28 @@ func IndexOfMax(v []float64) int {
 	}
 
 	return maxI
+}
+
+func Vectorize(v []float64, fn func(float64) float64) []float64 {
+	r := make([]float64, 0, len(v))
+
+	for _, vi := range v {
+		r = append(r, fn(vi))
+	}
+
+	return r
+}
+
+func Matrixize(m [][]float64, fn func(float64) float64) [][]float64 {
+	r := make([][]float64, len(m))
+
+	for i := range m {
+		r[i] = make([]float64, len(m[i]))
+
+		for j := 0; j < len(m[i]); j++ {
+			r[i][j] = fn(m[i][j])
+		}
+	}
+
+	return r
 }

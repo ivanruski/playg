@@ -11,8 +11,6 @@ import (
 	"github.com/ivanruski/playg/neural-networks-and-deep-learning/numgo"
 )
 
-const epsilon = 0.0001
-
 type Network struct {
 	NumLayers int
 	Sizes     []int
@@ -78,40 +76,37 @@ func (n *Network) EvalPerformance(test_data []TrainingSample) {
 }
 
 func (n *Network) FeedForward(a []float64) []float64 {
-	_, a_m := n.FeedForwardBackprop(a)
+	_, a_m := n.feedForwardBackprop(a)
 
 	return a_m[n.NumLayers-1]
 }
 
-func (n *Network) FeedForwardBackprop(a []float64) ([][]float64, [][]float64) {
+func (n *Network) feedForwardBackprop(a []float64) ([][]float64, [][]float64) {
 	z_m := make([][]float64, n.NumLayers)
 	a_m := make([][]float64, n.NumLayers)
 
 	a_m[0] = a
 
 	for l := 1; l < n.NumLayers; l++ {
-		z_m[l] = make([]float64, n.Sizes[l])
-		a_m[l] = make([]float64, n.Sizes[l])
-
-		anext := []float64{}
-
-		for j := range n.Sizes[l] {
-			w := n.Weights[l][j]
-			b := n.Biases[l][j]
-
-			z := numgo.DotProduct(w, a) + b
-			a := sigmoid(z)
-
-			z_m[l][j] = z
-			a_m[l][j] = a
-
-			anext = append(anext, a)
-		}
-
-		a = anext
+		z_m[l] = numgo.Add(numgo.MatrixByVector(n.Weights[l], a_m[l-1]), n.Biases[l])
+		a_m[l] = numgo.Vectorize(z_m[l], sigmoid)
 	}
 
 	return z_m, a_m
+}
+
+func (n *Network) feedForwardBatch(a [][]float64) ([][][]float64, [][][]float64) {
+	zm := make([][][]float64, n.NumLayers)
+	am := make([][][]float64, n.NumLayers)
+
+	am[0] = a
+
+	for l := 1; l < n.NumLayers; l++ {
+		zm[l] = numgo.MatrixHadamardAdd(numgo.MatrixMul(n.Weights[l], am[l-1]), n.Biases[l])
+		am[l] = numgo.Matrixize(zm[l], sigmoid)
+	}
+
+	return zm, am
 }
 
 type TrainingSample struct {
@@ -136,7 +131,7 @@ func (n *Network) SGD(_ context.Context, training_data []TrainingSample, epochs,
 			}
 
 			for _, training_sample := range batch {
-				zs, activations := n.FeedForwardBackprop(training_sample.X)
+				zs, activations := n.feedForwardBackprop(training_sample.X)
 
 				zL := zs[len(zs)-1]
 				aL := activations[len(activations)-1]
@@ -189,6 +184,93 @@ func (n *Network) SGD(_ context.Context, training_data []TrainingSample, epochs,
 					n.Biases[l][j] -= (eta * bg[l][j])
 					for k := range n.Sizes[l-1] {
 						n.Weights[l][j][k] -= (eta * wg[l][j][k])
+					}
+				}
+			}
+		}
+	}
+
+	n.saveState()
+}
+
+func (n *Network) SGD2(_ context.Context, training_data []TrainingSample, epochs, mini_batch_size int, eta float64) {
+	for range epochs {
+		batches := batchTrainingData(training_data, mini_batch_size)
+
+		for _, batch := range batches {
+			xm := make([][]float64, len(batch))
+			ym := make([][]float64, len(batch))
+			for i, ts := range batch {
+				xm[i] = ts.X
+				ym[i] = ts.Y
+			}
+
+			ym = numgo.Transpose(ym)
+			zm, am := n.feedForwardBatch(numgo.Transpose(xm))
+
+			eL := make([][][]float64, len(batch))
+
+			// 1. error output layer
+			eL[n.NumLayers-1] = numgo.MatrixHadamard(
+				numgo.MatrixSub(am[n.NumLayers-1], ym),            // each col is ∇ₐC for one training sample
+				numgo.Matrixize(zm[n.NumLayers-1], sigmoid_prime), // each col is σ′(zᴸ) for one training sample
+			)
+
+			// 2. error inner layers
+			for l := n.NumLayers - 2; l > 0; l-- {
+				wlT := numgo.Transpose(n.Weights[l+1])
+				eL[l] = make([][]float64, len(batch))
+				eL1 := numgo.Transpose(eL[l+1])
+				zml := numgo.Transpose(zm[l])
+				for i := range batch {
+					eL[l][i] = numgo.HadamardProduct(
+						numgo.MatrixByVector(wlT, eL1[i]),
+						sigmoidPrimeVector(zml[i]),
+					)
+				}
+
+				eL[l] = numgo.Transpose(eL[l])
+			}
+
+			// 3. partial derivative of w
+			wg := make([][][]float64, n.NumLayers)
+			for l := 1; l < n.NumLayers; l++ {
+				wg[l] = make([][]float64, n.Sizes[l])
+				al := am[l-1]
+				el := eL[l]
+				for j := range n.Sizes[l] {
+					wg[l][j] = make([]float64, n.Sizes[l-1])
+
+					for k := range n.Sizes[l-1] {
+						for i := range batch {
+							wg[l][j][k] += (al[k][i] * el[j][i])
+						}
+
+						wg[l][j][k] = (wg[l][j][k] / float64(len(batch))) * eta
+					}
+				}
+			}
+
+			// 4. parital derivative of b
+			bg := make([][]float64, n.NumLayers)
+			for l := 1; l < n.NumLayers; l++ {
+				bg[l] = make([]float64, n.Sizes[l])
+				el := eL[l]
+				for j := range n.Sizes[l] {
+					for i := range batch {
+						bg[l][j] += el[j][i]
+					}
+
+					bg[l][j] = (bg[l][j] / float64(len(batch))) * eta
+				}
+			}
+
+			// the update step
+			for l := 1; l < n.NumLayers; l++ {
+				for j := range n.Sizes[l] {
+					n.Biases[l][j] -= bg[l][j]
+					for k := range n.Sizes[l-1] {
+						n.Weights[l][j][k] -= wg[l][j][k]
 					}
 				}
 			}
