@@ -53,21 +53,36 @@
 (define (integers-starting-from n)
   (cons-stream n (integers-starting-from (+ n 1))))
 
-(define (integrate-series series)
-  (stream-map (lambda (a n) (/ a n))
-              series
-              (integers-starting-from 1)))
+(define integers (integers-starting-from 1))
 
-(define (scale-stream stream factor)
-  (stream-map (lambda (x) (* x factor)) stream))
+;; for reference, not the actual implementation
+(define (stream-map fn s1 s2)
+  (cons-stream (fn (stream-car s1) (stream-car s2))
+               (stream-map fn (stream-cdr s1) (stream-cdr s2))))
 
-(define exp-series
-  (cons-stream 1 (integrate-series exp-series)))
+(define (integrate-series S)
+  (stream-map / S integers))
 
 ;; It took me A LOT of time to figure this out
 (define cosine-series
-  (cons-stream 1 (scale-stream (integrate-series sine-series)
-                               -1)))
+  (cons-stream 1 (integrate-series (stream-map - sine-series))))
 
 (define sine-series
   (cons-stream 0 (integrate-series cosine-series)))
+
+;; sine-series
+;; 0 - 0
+;; 1 - 1      = (car cos) / 1
+;; 2 - 0      = (stream-ref cos 1) / 2
+;; 3 - -1/6   = (stream-ref cos 2) / 3
+;; 4 - 0      = (stream-ref cos 3) / 4
+;; 5 - 1/120  = (stream-ref cos 4) / 5
+;; ...
+
+;; cos-series
+;; 0 - 1
+;; 1 - 0     = (- (car sin)) / 1
+;; 2 - -1/2  = (- (stream-ref sin 1)) / 2
+;; 3 - 0     = (- (stream-ref sin 2)) / 3
+;; 4 - 1/24  = (- (stream-ref sin 3)) / 4
+;; ...
