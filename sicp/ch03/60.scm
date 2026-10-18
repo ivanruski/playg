@@ -14,11 +14,35 @@
 (define (scale-stream s factor)
   (stream-map (lambda (x) (* x factor)) s))
 
-(define (mul-series s1 s2)
-  (cons-stream (* (stream-car s1)
-                  (stream-car s2))
-               (add-streams (stream-map (lambda (x) (* x (stream-car s1))) (stream-cdr s2))
-                            (mul-series (stream-cdr s1) s2))))
+;; a power series represented as stream S is equivalent to S = c + xS
+;; AxB = (a0 + xAr)*(b0 + xBr)
+;; If we expand the multiplication we can implement mul-series in 2 ways:
+;;
+;; Variant 1:
+;; AxB = a0b0 + x(a0Br + b0Ar + xArBr)
+(define (mul-series-1 A B)
+  (let ((a0 (stream-car A))
+        (Ar (stream-cdr A))
+        (b0 (stream-car B))
+        (Br (stream-cdr B)))
+    (cons-stream (* a0 b0)
+                 (add-streams (scale-stream Br a0)
+                              (add-streams (scale-stream Ar b0)
+                                           ;; We have to prefix with (cons 0 ...)
+                                           ;; to account for the x in xArBr
+                                           (cons-stream 0 (mul-series-1 Ar Br)))))))
+
+;; Variant 2:
+;; AxB = a0b0 + x(a0Br + Ar(b0 + xBr)) =
+;;     = a0B0 + x(a0Br + ArB)
+(define (mul-series-2 A B)
+  (let ((a0 (stream-car A))
+        (Ar (stream-cdr A))
+        (b0 (stream-car B))
+        (Br (stream-cdr B)))
+    (cons-stream (* a0 b0)
+                 (add-streams (scale-stream Br a0)
+                              (mul-series-2 Ar B)))))
 
 ;;;; test
 ;; from 3.59
@@ -45,8 +69,8 @@
 (define sine-series
   (cons-stream 0 (integrate-series cosine-series)))
 
-(define ss (mul-series sine-series sine-series))
-(define cc (mul-series cosine-series cosine-series))
+(define ss (mul-series-1 sine-series sine-series))
+(define cc (mul-series-2 cosine-series cosine-series))
 
 (define sc (add-streams ss cc))
 ;; Value: {1 0 0 0 0 0 0 0 0 0 0 ...}
