@@ -30,11 +30,13 @@
 (define (scale-stream s factor)
   (stream-map (lambda (x) (* x factor)) s))
 
-(define (mul-series s1 s2)
-  (cons-stream (* (stream-car s1)
-                  (stream-car s2))
-               (add-streams (stream-map (lambda (x) (* x (stream-car s1))) (stream-cdr s2))
-                            (mul-series (stream-cdr s1) s2))))
+;; variant 2
+(define (mul-series A B)
+  (let ((a0 (stream-car A))
+        (b0 (stream-car B)))
+    (cons-stream (* a0 b0)
+                 (add-streams (scale-stream (stream-cdr B) a0)
+                              (mul-series (stream-cdr A) B)))))
 
 ;; from 3.59
 (define (integers-starting-from n)
@@ -44,9 +46,6 @@
   (stream-map (lambda (a n) (/ a n))
               series
               (integers-starting-from 1)))
-
-(define (scale-stream stream factor)
-  (stream-map (lambda (x) (* x factor)) stream))
 
 (define exp-series
   (cons-stream 1 (integrate-series exp-series)))
