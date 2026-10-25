@@ -21,28 +21,26 @@
 ;; Variant 1:
 ;; AxB = a0b0 + x(a0Br + b0Ar + xArBr)
 (define (mul-series-1 A B)
+  ;; we won't want to define Ar & Br in the let because that would force the evaluation of the cdr part
   (let ((a0 (stream-car A))
-        (Ar (stream-cdr A))
-        (b0 (stream-car B))
-        (Br (stream-cdr B)))
+        (b0 (stream-car B)))
     (cons-stream (* a0 b0)
-                 (add-streams (scale-stream Br a0)
-                              (add-streams (scale-stream Ar b0)
+                 (add-streams (scale-stream (stream-cdr B) a0)
+                              (add-streams (scale-stream (stream-cdr A) b0)
                                            ;; We have to prefix with (cons 0 ...)
                                            ;; to account for the x in xArBr
-                                           (cons-stream 0 (mul-series-1 Ar Br)))))))
+                                           (cons-stream 0 (mul-series-1 (stream-cdr A) (stream-cdr B))))))))
 
 ;; Variant 2:
 ;; AxB = a0b0 + x(a0Br + Ar(b0 + xBr)) =
 ;;     = a0B0 + x(a0Br + ArB)
 (define (mul-series-2 A B)
+  ;; we won't want to define Ar & Br in the let because that would force the evaluation of the cdr part
   (let ((a0 (stream-car A))
-        (Ar (stream-cdr A))
-        (b0 (stream-car B))
-        (Br (stream-cdr B)))
+        (b0 (stream-car B)))
     (cons-stream (* a0 b0)
-                 (add-streams (scale-stream Br a0)
-                              (mul-series-2 Ar B)))))
+                 (add-streams (scale-stream (stream-cdr B) a0)
+                              (mul-series-2 (stream-cdr A) B)))))
 
 ;;;; test
 ;; from 3.59
